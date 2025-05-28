@@ -1,6 +1,6 @@
-# Configuration pour tester le mode Container Discovery
+# Configuration for testing Container Discovery mode
 containers:
-  # Laissez vide quand container_discovery est activé
+  # Leave empty when container_discovery is enabled
 
 global_keywords:
   keywords:
@@ -11,34 +11,35 @@ global_keywords:
     - critical
     - fatal
 
-# Mode de découverte avancée de conteneurs
+# Advanced container discovery mode
 container_discovery:
-  enabled: true                     # Activer la découverte avancée
-  include_patterns:                 # Inclure les conteneurs qui correspondent à ces patterns
+  enabled: true                     # Enable advanced discovery
+  include_patterns:                 # Include containers matching these patterns
     - "web-*"
     - "api-*"
     - "app-*"
-  exclude_patterns:                 # Exclure les conteneurs qui correspondent à ces patterns
+    - "loggifly*"
+  exclude_patterns:                 # Exclude containers matching these patterns
     - "*-test"
     - "*-temp"
     - "*-backup"
-  required_labels: []               # Les conteneurs doivent avoir ces labels pour être surveillés
-    # Exemples:
-    # - "monitoring=enabled"        # Décommentez pour activer
-  exclude_labels:                   # Exclure les conteneurs avec ces labels
+  required_labels: []               # Containers must have these labels to be monitored
+    # Examples:
+    # - "monitoring=enabled"        # Uncomment to enable
+  exclude_labels:                   # Exclude containers with these labels
     - "monitoring=disabled"
     - "loggifly.exclude=true"
-    # Alternative : vous pouvez aussi ajouter le label "loggifly.exclude=true" 
-    # au conteneur LoggiFly dans votre docker-compose.yml
-  exclude_system_containers: true   # Exclure les conteneurs système
+    # Alternative: you can also add the label "loggifly.exclude=true"
+    # to the LoggiFly container in your docker-compose.yml
+  exclude_system_containers: true   # Exclude system containers
 
 notifications:
   debug:
-    enabled: true  # Désactiver le mode debug pour éviter l'affichage des notifications système
+    enabled: true  # Disable debug mode to avoid displaying system notifications as alerts
 
 settings:
   log_level: DEBUG
   attachment_lines: 10
   notification_cooldown: 2
-  disable_start_message: true       # Désactiver les messages de démarrage
-  disable_config_reload_message: true  # Désactiver les messages de rechargement de config
+  disable_start_message: true       # Disable startup messages
+  disable_config_reload_message: true  # Disable config reload messages

@@ -1,35 +1,31 @@
 services:
   loggifly:
-    build:
-      context: .
-      dockerfile: Dockerfile
     container_name: loggifly-local
+    build: .
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      # Montage du répertoire de configuration local
-      # Créez le dossier ./loggifly/config et placez-y votre config.yaml
+      # Local configuration directory mount
+      # Create the ./loggifly/config folder and place your config.yaml there
       - ./loggifly/config:/config
-      # Alternative : montage direct d'un fichier config.yaml
-      # - ./config.yaml:/config/config.yaml
     environment:
       - TZ=Europe/Paris
-      # Driver de notification debug activé par défaut pour le développement
-      - DEBUG_NOTIFICATIONS=true
-      # Exemples de variables d'environnement pour une configuration rapide
-      # Décommentez et configurez selon vos besoins :
-      # - NTFY_URL=https://ntfy.sh
-      # - NTFY_TOPIC=loggifly-local
-      # - CONTAINERS=container1,container2
-      # - GLOBAL_KEYWORDS=error,warning,critical
-      # - GLOBAL_KEYWORDS_WITH_ATTACHMENT=fatal,panic
-      # - LOG_LEVEL=DEBUG
-      # - MONITOR_ALL_CONTAINERS=false
+      # Debug notification driver enabled by default for development
+      - DEBUG_ENABLED=true
+
+      # Uncomment and configure according to your needs:
+      # - NTFY_URL=https://ntfy.sh/your-topic
+      # - NTFY_USERNAME=your-username
+      # - NTFY_PASSWORD=your-password
+      # - APPRISE_URL=discord://webhook_id/webhook_token
+      # - WEBHOOK_URL=http://your-webhook-endpoint
+      # - WEBHOOK_HEADERS={"Authorization": "Bearer your-token"}
     restart: unless-stopped
-    # Optionnel : réseau personnalisé pour isoler le conteneur
+
+    # Optional: custom network to isolate the container
     # networks:
     #   - loggifly-network
 
-# Optionnel : définition d'un réseau personnalisé
+# Optional: custom network definition
 # networks:
 #   loggifly-network:
 #     driver: bridge

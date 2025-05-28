@@ -119,37 +119,24 @@ def send_debug_notification(container_name, title, message, keywords=None, hostn
     # Timestamp actuel
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Construction du message de debug structuré
-    logger.warning("🚨 ALERT TRIGGERED")
-    logger.warning(f"   ├─ Container: {container_name}")
-    logger.warning(f"   ├─ Title: {title}")
-    logger.warning(f"   ├─ Timestamp: {timestamp}")
+    # Build structured debug message
+    debug_lines = [
+        f"🚨 ALERT TRIGGERED",
+        f"   ├─ Container: {container_name}",
+        f"   ├─ Title: {title}",
+        f"   ├─ Timestamp: {timestamp}",
+        f"   ├─ Log line: {message[:100]}{'...' if len(message) > 100 else ''}",
+        f"   └─ {'Attachment: ' + file_path if file_path else 'No attachment'}"
+    ]
 
-    if hostname:
-        logger.warning(f"   ├─ Host: {hostname}")
+    debug_message = "\n".join(debug_lines)
 
-    if keywords:
-        if isinstance(keywords, list):
-            keywords_str = ", ".join([f"'{kw}'" for kw in keywords])
-        else:
-            keywords_str = f"'{keywords}'"
-        logger.warning(f"   ├─ Triggered by keyword(s): {keywords_str}")
+    # Display message (first line only to avoid clutter)
+    for line in debug_lines:
+        logger.warning(line)
 
-    # Affichage du message (première ligne seulement pour éviter l'encombrement)
-    if message:
-        first_line = message.split('\n')[0]
-        if len(first_line) > 80:
-            first_line = first_line[:77] + "..."
-        logger.warning(f"   ├─ Log line: {first_line}")
-
-    # Information sur l'attachement
-    if file_path and attachment_lines:
-        logger.warning(f"   └─ Attachment lines: {attachment_lines}")
-    else:
-        logger.warning(f"   └─ No attachment")
-
-    # Ligne de séparation pour la lisibilité
-    logger.warning("─" * 50)
+    # Separator line for readability
+    logger.warning("─" * 70)
 
 
 def send_notification(config: GlobalConfig, container_name, title, message, keywords=None, hostname=None, file_path=None):

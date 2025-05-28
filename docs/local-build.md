@@ -1,138 +1,139 @@
-# 🔧 Build Local de LoggiFly
+# 🏗️ Local Build Guide
 
-Ce guide explique comment builder et exécuter LoggiFly à partir du code source local plutôt que d'utiliser l'image du registry distant.
+## 📋 Prerequisites
 
-## 📋 Prérequis
+- Docker and Docker Compose installed
+- Access to Docker socket (`/var/run/docker.sock`)
+- Basic knowledge of YAML configuration
 
-- Docker et Docker Compose installés
-- Code source de LoggiFly cloné localement
+## 🚀 Quick Start
 
-## 🚀 Utilisation
+### 1. Configuration Preparation
 
-### 1. Préparation de la configuration
+Create the configuration directory and copy the template:
 
-Créez le répertoire de configuration :
 ```bash
-mkdir -p ./loggifly/config
+# Create configuration directory
+mkdir -p loggifly/config
+
+# Copy the template and edit it
+cp config_template.yaml loggifly/config/config.yaml
+# Then edit the file according to your needs
 ```
 
-**Option A : Utiliser le template de configuration**
-```bash
-# Copier le template et l'éditer
-cp config_template.yaml ./loggifly/config/config.yaml
-# Puis éditez le fichier selon vos besoins
-```
+**Important**: The configuration file must be placed in `./loggifly/config/config.yaml` for the local build.
 
-**Option B : Utiliser les variables d'environnement**
-Éditez le fichier `docker-compose-local.yaml` et décommentez/configurez les variables d'environnement selon vos besoins.
-
-### 2. Build et démarrage
+### 2. Build and Start
 
 ```bash
-# Builder l'image à partir du code source local
+# Build the image from local source code
 docker-compose -f docker-compose-local.yaml build
 
-# Démarrer le conteneur
-docker-compose -f docker-compose-local.yaml up -d --build --force-recreate --remove-orphans --pull always
+# Start the container
+docker-compose -f docker-compose-local.yaml up -d
 
-# Voir les logs
+# View logs
 docker-compose -f docker-compose-local.yaml logs -f
 ```
 
-### 3. Commandes utiles
+## 🔧 Development Commands
 
 ```bash
-# Arrêter le conteneur
+# Stop the container
 docker-compose -f docker-compose-local.yaml down
 
-# Rebuild après modification du code
+# Rebuild after code modification
 docker-compose -f docker-compose-local.yaml build --no-cache
 
-# Redémarrer après rebuild
-docker-compose -f docker-compose-local.yaml up -d --force-recreate
+# Restart after rebuild
+docker-compose -f docker-compose-local.yaml up -d
 
-# Voir les logs en temps réel
+# View logs in real-time
 docker-compose -f docker-compose-local.yaml logs -f loggifly
 ```
 
-## 🔄 Développement
+## 🔄 Development
 
-Pour le développement actif, vous pouvez :
+### Configuration Structure
 
-1. **Modifier le code** dans le répertoire `app/`
-2. **Rebuilder l'image** : `docker-compose -f docker-compose-local.yaml build`
-3. **Redémarrer le conteneur** : `docker-compose -f docker-compose-local.yaml up -d --force-recreate`
+The local build uses a specific directory structure:
 
-## 📝 Configuration
+```
+loggifly/
+├── docker-compose-local.yaml
+├── loggifly/
+│   └── config/
+│       └── config.yaml          # Your configuration
+├── app/                         # Source code
+├── Dockerfile
+└── config_template.yaml         # Template
+```
 
-### Variables d'environnement disponibles
-
-Vous pouvez configurer LoggiFly via les variables d'environnement dans le fichier `docker-compose-local.yaml` :
+### Example Configuration
 
 ```yaml
-environment:
-  # Configuration Ntfy
-  - NTFY_URL=https://ntfy.sh
-  - NTFY_TOPIC=loggifly-local
-  - NTFY_TOKEN=your_token_here
+# Containers to monitor
+containers:
+  - name: my-app
 
-  # Conteneurs à surveiller
-  - CONTAINERS=container1,container2,container3
+# Global keywords
+global_keywords:
+  keywords:
+    - error
+    - warning
+  keywords_with_attachment:
+    - critical
 
-  # Mots-clés globaux
-  - GLOBAL_KEYWORDS=error,warning,critical,failed
-  - GLOBAL_KEYWORDS_WITH_ATTACHMENT=fatal,panic,traceback
+notifications:
+  debug:
+    enabled: true
 
-  # Surveillance de tous les conteneurs
-  - MONITOR_ALL_CONTAINERS=true
-
-  # Configuration des logs
-  - LOG_LEVEL=DEBUG
-  - ATTACHMENT_LINES=50
-  - NOTIFICATION_COOLDOWN=10
+settings:
+  log_level: DEBUG
+  monitor_all_containers: false
 ```
 
-### Fichier de configuration YAML
-
-Pour une configuration plus avancée (regex, action_keywords, etc.), utilisez un fichier `config.yaml` :
+### Quick Configuration
 
 ```bash
-# Créer votre configuration
-cp config_template.yaml ./loggifly/config/config.yaml
-# Éditer selon vos besoins
-nano ./loggifly/config/config.yaml
+# Create your configuration
+cp config_template.yaml loggifly/config/config.yaml
+# Edit according to your needs
+nano loggifly/config/config.yaml
 ```
 
-## 🐛 Dépannage
+## 🐛 Troubleshooting
 
-### Problèmes de build
+### Build Issues
+
 ```bash
-# Nettoyer et rebuilder complètement
+# Clean and rebuild completely
 docker-compose -f docker-compose-local.yaml down
 docker system prune -f
 docker-compose -f docker-compose-local.yaml build --no-cache
 ```
 
-### Problèmes de permissions Docker
+### Docker Permission Issues
+
 ```bash
-# Vérifier que l'utilisateur peut accéder au socket Docker
+# Check that the user can access the Docker socket
 sudo usermod -aG docker $USER
-# Puis redémarrer la session
+# Then restart the session
 ```
 
-### Logs de débogage
+### Debug Logs
+
 ```bash
-# Activer les logs de debug
-# Dans docker-compose-local.yaml, ajoutez :
-# - LOG_LEVEL=DEBUG
+# View detailed logs
+docker-compose -f docker-compose-local.yaml logs -f
 ```
 
-## 🔗 Différences avec la version registry
+## 🔗 Differences from Registry Version
 
-- **Image** : Buildée localement au lieu d'être téléchargée
-- **Nom du conteneur** : `loggifly-local` au lieu de `loggifly`
-- **Développement** : Permet de tester les modifications du code immédiatement
-- **Performance** : Pas de téléchargement d'image, mais temps de build initial
+- **Local Build**: Uses source code from the current directory
+- **Registry Version**: Uses pre-built image from Docker Hub
+- **Configuration**: Local build requires `./loggifly/config/config.yaml`
+- **Development**: Local build allows real-time code modification
 
 ## 📚 Ressources
 

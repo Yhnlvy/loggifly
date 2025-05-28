@@ -22,38 +22,11 @@ if [ -d "$CONFIG_DIR" ]; then
             fi
         fi
 
-        # Créer un config.yaml par défaut pour le développement local
-        echo "No config.yaml found. Creating default debug configuration..."
-        if [ -f "$LOCAL_DEBUG_CONFIG" ]; then
-            cp "$LOCAL_DEBUG_CONFIG" "$CONFIG_FILE"
-            echo "Debug configuration copied to $CONFIG_FILE"
-        else
-            echo "Creating minimal debug configuration..."
-            cat > "$CONFIG_FILE" << 'EOF'
-# Configuration automatique pour le développement local
-containers: {}
-
-global_keywords:
-  keywords:
-    - error
-    - warning
-    - failed
-  keywords_with_attachment:
-    - critical
-    - fatal
-
-notifications:
-  debug:
-    enabled: true
-
-settings:
-  log_level: DEBUG
-  monitor_all_containers: true
-  attachment_lines: 10
-  notification_cooldown: 2
-EOF
-            echo "Minimal debug configuration created at $CONFIG_FILE"
-        fi
+        # Create a default config.yaml for local development
+        echo "No config.yaml found, creating default configuration..."
+        cp /app/config_template.yaml /config/config.yaml
+        echo "Default config.yaml created in /config/"
+        echo "Please edit /config/config.yaml to configure your monitoring settings."
     # else
     #     echo "config.yaml already exists."
     fi

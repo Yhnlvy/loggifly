@@ -11,7 +11,7 @@
 \# Monitoring global des conteneurs
 monitor_all_containers: true
 
-\# Ou configuration avancée
+\# Or advanced configuration
 container_discovery:
   enabled: true
   include_patterns:

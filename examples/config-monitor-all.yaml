@@ -1,6 +1,6 @@
-# Configuration simple pour tester le driver debug
+# Configuration for testing Container Discovery mode
 containers:
-  # Laissez vide pour utiliser monitor_all_containers
+  # Leave empty when container_discovery is enabled
 
 global_keywords:
   keywords:
@@ -13,10 +13,11 @@ global_keywords:
 
 notifications:
   debug:
-    enabled: true
+    enabled: true  # Disable debug mode to avoid displaying system notifications as alerts
 
 settings:
   log_level: DEBUG
-  monitor_all_containers: true  # Surveille automatiquement tous les conteneurs
   attachment_lines: 10
   notification_cooldown: 2
+  disable_start_message: true       # Disable startup messages
+  disable_config_reload_message: true  # Disable config reload messages

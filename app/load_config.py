@@ -243,11 +243,11 @@ class GlobalConfig(BaseConfigModel):
                     tmp_list.extend(self.containers[k].keywords)
         if not tmp_list:
             raise ValueError("No keywords configured. You have to set keywords either per container or globally.")
-        
-        # Si monitor_all_containers ou container_discovery est activé, on n'a pas besoin de conteneurs spécifiques
-        if self.settings.monitor_all_containers or (self.container_discovery and self.container_discovery.enabled):
+
+        # If monitor_all_containers or container_discovery is enabled, we don't need specific containers
+        if self.settings.monitor_all_containers or self.container_discovery.enabled:
             return self
-            
+
         if not self.containers and not self.swarm_services:
             raise ValueError("You have to configure at least one container, enable monitor_all_containers, or enable container_discovery")
         return self

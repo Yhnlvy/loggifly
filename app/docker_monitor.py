@@ -105,30 +105,26 @@ class DockerLogMonitor:
 
     def _should_monitor_container(self, container):
         """
-        Détermine si un conteneur doit être surveillé en fonction de la configuration.
-        Retourne True si le conteneur doit être surveillé, False sinon.
-        Pour les services swarm, retourne le nom du service si applicable.
+        Determine if a container should be monitored according to the configuration.
         """
-        # En mode swarm, vérifier d'abord les services swarm
-        if self.swarm_mode:
-            swarm_service_name = self._check_if_swarm_to_monitor(container)
-            if swarm_service_name:
-                return swarm_service_name
+        # In swarm mode, check swarm services first
+        if self.config.swarm and self.config.swarm.enabled:
+            return self._should_monitor_swarm_service(container)
 
-        # Si container_discovery est activé, utiliser la logique de découverte avancée
+        # If container_discovery is enabled, use advanced discovery logic
         if self.config.container_discovery and self.config.container_discovery.enabled:
             return self._should_monitor_container_discovery(container)
 
-        # Si monitor_all_containers est activé, surveiller tous les conteneurs
+        # If monitor_all_containers is enabled, monitor all containers
         if self.config.settings.monitor_all_containers:
             return True
 
-        # Sinon, vérifier si le conteneur est dans la liste des conteneurs sélectionnés
-        return container.name in self.selected_containers
+        # Otherwise, check if the container is in the selected containers list
+        return container.name in [c.name for c in self.config.containers]
 
     def _should_monitor_container_discovery(self, container):
         """
-        Logique de découverte avancée de conteneurs basée sur les patterns et labels.
+        Advanced container discovery logic based on patterns and labels.
         """
         import fnmatch
 
@@ -137,7 +133,7 @@ class DockerLogMonitor:
 
         self.logger.debug(f"Evaluating container for discovery: {container_name}")
 
-        # 1. Exclure les conteneurs système si configuré (PRIORITÉ ABSOLUE)
+        # 1. Exclude system containers if configured (ABSOLUTE PRIORITY)
         if self.config.container_discovery.exclude_system_containers:
             system_patterns = [
                 "docker*", "k8s_*", "kube-*", "kubernetes*",
@@ -146,12 +142,12 @@ class DockerLogMonitor:
                 "loggifly*"
             ]
             for pattern in system_patterns:
-                # Matching insensible à la casse pour les conteneurs système
+                # Case-insensitive matching for system containers
                 if fnmatch.fnmatch(container_name.lower(), pattern.lower()):
-                    self.logger.debug(f"Excluding system container: {container_name} (matched pattern: {pattern})")
+                    self.logger.debug(f"Excluding system container: {container_name}")
                     return False
 
-        # 2. Vérifier les labels d'exclusion (priorité haute)
+        # 2. Check exclusion labels (high priority)
         for exclude_label in self.config.container_discovery.exclude_labels:
             if "=" in exclude_label:
                 key, value = exclude_label.split("=", 1)
@@ -159,18 +155,17 @@ class DockerLogMonitor:
                     self.logger.debug(f"Container {container_name} excluded by label: {exclude_label}")
                     return False
             else:
-                # Label existe (peu importe la valeur)
                 if exclude_label in container_labels:
                     self.logger.debug(f"Container {container_name} excluded by label presence: {exclude_label}")
                     return False
 
-        # 3. Vérifier les patterns d'exclusion
-        for exclude_pattern in self.config.container_discovery.exclude_patterns:
-            if fnmatch.fnmatch(container_name, exclude_pattern):
-                self.logger.debug(f"Container {container_name} excluded by pattern: {exclude_pattern}")
+        # 3. Check exclusion patterns
+        for pattern in self.config.container_discovery.exclude_patterns:
+            if fnmatch.fnmatch(container_name, pattern):
+                self.logger.debug(f"Container {container_name} excluded by pattern: {pattern}")
                 return False
 
-        # 4. Vérifier les labels requis
+        # 4. Check required labels
         for required_label in self.config.container_discovery.required_labels:
             if "=" in required_label:
                 key, value = required_label.split("=", 1)
@@ -178,25 +173,24 @@ class DockerLogMonitor:
                     self.logger.debug(f"Container {container_name} missing required label: {required_label}")
                     return False
             else:
-                # Label doit exister (peu importe la valeur)
                 if required_label not in container_labels:
                     self.logger.debug(f"Container {container_name} missing required label: {required_label}")
                     return False
 
-        # 5. Vérifier les patterns d'inclusion (si spécifiés)
-        # NOTE: Les exclusions système ont déjà été vérifiées et ont la priorité absolue
+        # 5. Check inclusion patterns (if specified)
+        # NOTE: System exclusions have already been checked and have absolute priority
         if self.config.container_discovery.include_patterns:
-            for include_pattern in self.config.container_discovery.include_patterns:
-                if fnmatch.fnmatch(container_name, include_pattern):
-                    self.logger.debug(f"Container {container_name} included by pattern: {include_pattern}")
+            for pattern in self.config.container_discovery.include_patterns:
+                if fnmatch.fnmatch(container_name, pattern):
+                    self.logger.debug(f"Container {container_name} included by pattern: {pattern}")
                     return True
-            # Si des patterns d'inclusion sont spécifiés mais aucun ne correspond
-            self.logger.debug(f"Container {container_name} not matching any include pattern")
+            # If inclusion patterns are specified but none match
+            self.logger.debug(f"Container {container_name} not matching any inclusion pattern")
             return False
 
-        # 6. Si aucun pattern d'inclusion n'est spécifié, inclure par défaut
-        # (après avoir passé tous les filtres d'exclusion)
-        self.logger.debug(f"Container {container_name} included by default (passed all filters)")
+        # 6. If no inclusion pattern is specified, include by default
+        # (after passing all exclusion filters)
+        self.logger.debug(f"Container {container_name} included by default (no inclusion patterns)")
         return True
 
     # This function is called from outside this class to start the monitoring
@@ -228,11 +222,11 @@ class DockerLogMonitor:
             should_monitor = self._should_monitor_container(container)
             if should_monitor:
                 if self.swarm_mode and isinstance(should_monitor, str):
-                    # should_monitor contient le nom du service swarm
+                    # should_monitor contains the name of the swarm service
                     self.logger.debug(f"Trying to monitor container of swarm service: {should_monitor}")
                     self._monitor_container(container, swarm_service=should_monitor)
                 else:
-                    # Conteneur normal ou monitor_all_containers activé
+                    # Normal container or monitor_all_containers enabled
                     self._monitor_container(container)
                 self.monitored_containers[container.id] = container
         self._watch_events()
@@ -258,19 +252,19 @@ class DockerLogMonitor:
         try:
             # stop monitoring containers that are no longer in the config
             if self.config.settings.monitor_all_containers or (self.config.container_discovery and self.config.container_discovery.enabled):
-                # Si monitor_all_containers ou container_discovery est activé,
-                # réévaluer tous les conteneurs surveillés pour voir s'ils doivent encore l'être
+                # If monitor_all_containers or container_discovery is enabled,
+                # re-evaluate all monitored containers to see if they should still be monitored
                 stop_monitoring = []
                 for container_id, container in self.monitored_containers.items():
                     try:
-                        container.reload()  # Rafraîchir les informations du conteneur
+                        container.reload()  # Refresh container information
                         if not self._should_monitor_container(container):
                             stop_monitoring.append(container)
                     except Exception as e:
-                        # Si le conteneur n'existe plus, l'arrêter
+                        # If container no longer exists, stop monitoring
                         stop_monitoring.append(container)
             else:
-                # Logique normale : arrêter la surveillance des conteneurs qui ne sont plus dans la config
+                # Normal logic: stop monitoring containers that are no longer in the config
                 stop_monitoring = [c for _, c in self.monitored_containers.items() if c.name not in self.selected_containers]
 
             for c in stop_monitoring:
@@ -283,13 +277,13 @@ class DockerLogMonitor:
                 processor.load_config_variables(self.config)
             # start monitoring new containers that are in the config but not monitored yet
             if self.config.settings.monitor_all_containers or (self.config.container_discovery and self.config.container_discovery.enabled):
-                # Surveiller tous les conteneurs qui passent les filtres
+                # Monitor all containers that pass the filters
                 containers_to_monitor = []
                 for container in self.client.containers.list():
                     if container.id not in self.monitored_containers.keys() and self._should_monitor_container(container):
                         containers_to_monitor.append(container)
             else:
-                # Logique normale : surveiller seulement les conteneurs spécifiés
+                # Normal logic: monitor only specified containers
                 containers_to_monitor = [c for c in self.client.containers.list() if c.name in self.selected_containers and c.id not in self.monitored_containers.keys()]
 
             for c in containers_to_monitor:
@@ -308,7 +302,7 @@ class DockerLogMonitor:
         monitored_containers_message = "\n - ".join(c.name for id, c in self.monitored_containers.items())
 
         if self.config.container_discovery and self.config.container_discovery.enabled:
-            # Mode container discovery
+            # Container discovery mode
             discovery_info = []
             if self.config.container_discovery.include_patterns:
                 discovery_info.append(f"Include patterns: {', '.join(self.config.container_discovery.include_patterns)}")
@@ -505,10 +499,10 @@ class DockerLogMonitor:
                             should_monitor = self._should_monitor_container(container)
                             if should_monitor:
                                 if self.swarm_mode and isinstance(should_monitor, str):
-                                    # should_monitor contient le nom du service swarm
+                                    # should_monitor contains the name of the swarm service
                                     self._monitor_container(container, swarm_service=should_monitor)
                                 else:
-                                    # Conteneur normal ou monitor_all_containers activé
+                                    # Normal container or monitor_all_containers enabled
                                     self._monitor_container(container)
                                 self.logger.info(f"Monitoring new container: {container.name}")
                                 if self.config.settings.disable_container_event_message is False:
