@@ -124,7 +124,7 @@ class ContainerConfig(BaseConfigModel, KeywordBase, ActionKeywords):
                 return 3
         return v
 
-class GlobalKeywords(BaseConfigModel, KeywordBase):
+class GlobalKeywords(BaseConfigModel, KeywordBase, ActionKeywords):
     pass
 
 class NtfyConfig(BaseConfigModel):
@@ -365,9 +365,24 @@ def load_config(official_path="/config/config.yaml"):
         "exclude_labels": [l.strip() for l in os.getenv("CONTAINER_DISCOVERY_EXCLUDE_LABELS", "").split(",") if l.strip()] if os.getenv("CONTAINER_DISCOVERY_EXCLUDE_LABELS") else [],
         "exclude_system_containers": os.getenv("CONTAINER_DISCOVERY_EXCLUDE_SYSTEM")
     }
+    # Parse GLOBAL_ACTION_KEYWORDS with format: restart:keyword1,stop:keyword2
+    global_action_keywords = []
+    if os.getenv("GLOBAL_ACTION_KEYWORDS"):
+        for item in os.getenv("GLOBAL_ACTION_KEYWORDS", "").split(","):
+            item = item.strip()
+            if ":" in item:
+                action, keyword = item.split(":", 1)
+                action = action.strip()
+                keyword = keyword.strip()
+                if action in ["restart", "stop"] and keyword:
+                    global_action_keywords.append({action: keyword})
+            elif item:  # Simple keyword without action (defaults to restart)
+                global_action_keywords.append({"restart": item})
+
     global_keywords_values = {
         "keywords": [kw.strip() for kw in os.getenv("GLOBAL_KEYWORDS", "").split(",") if kw.strip()] if os.getenv("GLOBAL_KEYWORDS") else [],
         "keywords_with_attachment": [kw.strip() for kw in os.getenv("GLOBAL_KEYWORDS_WITH_ATTACHMENT", "").split(",") if kw.strip()] if os.getenv("GLOBAL_KEYWORDS_WITH_ATTACHMENT") else [],
+        "action_keywords": global_action_keywords,
     }
     # Fill env_config dict with environment variables if they are set
     if os.getenv("CONTAINERS"):

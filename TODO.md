@@ -5,7 +5,7 @@
 - [x] logger les alertes dans la console loggifly
 - [x] si pas de fichier de config local, ne pas le télécharger depuis le remote mais depuis le local
 - [x] docker-compose-local.yaml
-
+- [x] develop action_containers in new modes
 - [x] configuration visée à terme:
 
 \# Monitoring global des conteneurs

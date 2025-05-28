@@ -10,15 +10,18 @@ global_keywords:
   keywords_with_attachment:
     - critical
     - fatal
+  action_keywords:                  # Global action keywords for all discovered containers
+    - restart: "service crashed"    # Restart container when this keyword is found
+    - stop: "fatal error"           # Stop container when this keyword is found
 
 # Advanced container discovery mode
 container_discovery:
   enabled: true                     # Enable advanced discovery
   include_patterns:                 # Include containers matching these patterns
-    - "web-*"
-    - "api-*"
-    - "app-*"
-    - "loggifly*"
+    - "*web*"
+    - "*api*"
+    - "*app*"
+    - "*loggifly*"
   exclude_patterns:                 # Exclude containers matching these patterns
     - "*-test"
     - "*-temp"

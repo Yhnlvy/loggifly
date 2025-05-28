@@ -103,11 +103,14 @@ class LogProcessor:
         if self.config.global_keywords:
             self.container_keywords.extend(self.config.global_keywords.keywords or [])
             self.container_keywords_with_attachment.extend(self.config.global_keywords.keywords_with_attachment or [])
+            # Add global action_keywords
+            self.container_action_keywords.extend(self.config.global_keywords.action_keywords or [])
 
         if self.swarm_service:
             self.container_keywords.extend(keyword for keyword in self.config.swarm_services[self.swarm_service].keywords if keyword not in self.container_keywords)
             self.container_keywords_with_attachment.extend(keyword for keyword in self.config.swarm_services[self.swarm_service].keywords_with_attachment if keyword not in self.container_keywords_with_attachment)
-            self.container_action_keywords = [keyword for keyword in self.config.swarm_services[self.swarm_service].action_keywords]
+            # Add swarm service specific action_keywords to the existing global ones
+            self.container_action_keywords.extend(keyword for keyword in self.config.swarm_services[self.swarm_service].action_keywords if keyword not in self.container_action_keywords)
 
             self.lines_number_attachment = self.config.swarm_services[self.swarm_service].attachment_lines or self.config.settings.attachment_lines
             self.notification_cooldown = self.config.swarm_services[self.swarm_service].notification_cooldown or self.config.settings.notification_cooldown
@@ -122,10 +125,9 @@ class LogProcessor:
                     break
 
             if container_config is None:
-                # Container not defined in configuration (monitor_all_containers mode)
-                # Use only global parameters
+                # Container not defined in configuration (monitor_all_containers or container_discovery mode)
+                # Use only global parameters (action_keywords are already added above)
                 self.logger.debug(f"Container {self.container_name} not in config, using global keywords only")
-                self.container_action_keywords = []
                 self.lines_number_attachment = self.config.settings.attachment_lines
                 self.notification_cooldown = self.config.settings.notification_cooldown
                 self.action_cooldown = self.config.settings.action_cooldown or 300
@@ -133,7 +135,8 @@ class LogProcessor:
             else:
                 self.container_keywords.extend(keyword for keyword in self.config.containers[self.container_name].keywords if keyword not in self.container_keywords)
                 self.container_keywords_with_attachment.extend(keyword for keyword in self.config.containers[self.container_name].keywords_with_attachment if keyword not in self.container_keywords_with_attachment)
-                self.container_action_keywords = [keyword for keyword in self.config.containers[self.container_name].action_keywords]
+                # Add container specific action_keywords to the existing global ones
+                self.container_action_keywords.extend(keyword for keyword in self.config.containers[self.container_name].action_keywords if keyword not in self.container_action_keywords)
 
                 self.lines_number_attachment = self.config.containers[self.container_name].attachment_lines or self.config.settings.attachment_lines
                 self.notification_cooldown = self.config.containers[self.container_name].notification_cooldown or self.config.settings.notification_cooldown
@@ -402,7 +405,7 @@ class LogProcessor:
                     formatted_log_entry ="\n  -----  LOG-ENTRY  -----\n" + ' | ' + '\n | '.join(log_line.splitlines()) + "\n   -----------------------"
                     self.logger.info(f"{'Stopping' if action == 'stop' else 'Restarting'} {self.container_name} because {found} was found in {formatted_log_entry}")
                     self._send_message(log_line, found, send_attachment=False, action=action)
-                    self._container_action(action, log_line, found)
+                    self._container_action(action)
                     self.last_action_time = time.time()
                     break
 

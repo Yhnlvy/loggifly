@@ -1,6 +1,6 @@
-# Configuration for testing Container Discovery mode
+# Configuration for testing monitor_all_containers mode
 containers:
-  # Leave empty when container_discovery is enabled
+  # Leave empty when monitor_all_containers is enabled
 
 global_keywords:
   keywords:
@@ -10,14 +10,18 @@ global_keywords:
   keywords_with_attachment:
     - critical
     - fatal
+  action_keywords:                  # Global action keywords for all monitored containers
+    - restart: "service crashed"    # Restart container when this keyword is found
+    - stop: "fatal error"           # Stop container when this keyword is found
 
 notifications:
   debug:
-    enabled: true  # Disable debug mode to avoid displaying system notifications as alerts
+    enabled: true  # Enable debug mode for testing
 
 settings:
   log_level: DEBUG
   attachment_lines: 10
   notification_cooldown: 2
+  monitor_all_containers: true      # Enable monitoring of all containers
   disable_start_message: true       # Disable startup messages
   disable_config_reload_message: true  # Disable config reload messages

@@ -108,8 +108,8 @@ class DockerLogMonitor:
         Determine if a container should be monitored according to the configuration.
         """
         # In swarm mode, check swarm services first
-        if self.config.swarm and self.config.swarm.enabled:
-            return self._should_monitor_swarm_service(container)
+        if self.swarm_mode:
+            return self._check_if_swarm_to_monitor(container)
 
         # If container_discovery is enabled, use advanced discovery logic
         if self.config.container_discovery and self.config.container_discovery.enabled:
