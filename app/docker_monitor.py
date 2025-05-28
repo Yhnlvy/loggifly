@@ -103,6 +103,25 @@ class DockerLogMonitor:
                     return configured
         return None
 
+    def _should_monitor_container(self, container):
+        """
+        Détermine si un conteneur doit être surveillé en fonction de la configuration.
+        Retourne True si le conteneur doit être surveillé, False sinon.
+        Pour les services swarm, retourne le nom du service si applicable.
+        """
+        # En mode swarm, vérifier d'abord les services swarm
+        if self.swarm_mode:
+            swarm_service_name = self._check_if_swarm_to_monitor(container)
+            if swarm_service_name:
+                return swarm_service_name
+
+        # Si monitor_all_containers est activé, surveiller tous les conteneurs
+        if self.config.settings.monitor_all_containers:
+            return True
+
+        # Sinon, vérifier si le conteneur est dans la liste des conteneurs sélectionnés
+        return container.name in self.selected_containers
+
     # This function is called from outside this class to start the monitoring
     def start(self, client):
         self.client = client
@@ -129,16 +148,15 @@ class DockerLogMonitor:
             self.logger.info(f"Running in swarm mode.")
 
         for container in self.client.containers.list():
-            if self.swarm_mode:
-                # if the container belongs to a swarm service that is set in the config the service name has to be saved for later use
-                swarm_service_name = self._check_if_swarm_to_monitor(container)
-                if swarm_service_name:
-                    self.logger.debug(f"Trying to monitor container of swarm service: {swarm_service_name}")
-                    self._monitor_container(container, swarm_service=swarm_service_name)
-                    self.monitored_containers[container.id] = container
-                    continue
-            if container.name in self.selected_containers:
-                self._monitor_container(container)
+            should_monitor = self._should_monitor_container(container)
+            if should_monitor:
+                if self.swarm_mode and isinstance(should_monitor, str):
+                    # should_monitor contient le nom du service swarm
+                    self.logger.debug(f"Trying to monitor container of swarm service: {should_monitor}")
+                    self._monitor_container(container, swarm_service=should_monitor)
+                else:
+                    # Conteneur normal ou monitor_all_containers activé
+                    self._monitor_container(container)
                 self.monitored_containers[container.id] = container
         self._watch_events()
         self._start_message()
@@ -162,7 +180,14 @@ class DockerLogMonitor:
             return
         try:
             # stop monitoring containers that are no longer in the config
-            stop_monitoring = [c for _, c in self.monitored_containers.items() if c.name not in self.selected_containers]
+            if self.config.settings.monitor_all_containers:
+                # Si monitor_all_containers est activé, ne pas arrêter la surveillance des conteneurs
+                # sauf s'ils sont explicitement exclus (pour l'instant, on surveille tout)
+                stop_monitoring = []
+            else:
+                # Logique normale : arrêter la surveillance des conteneurs qui ne sont plus dans la config
+                stop_monitoring = [c for _, c in self.monitored_containers.items() if c.name not in self.selected_containers]
+
             for c in stop_monitoring:
                 container_stop_event = self.line_processor_instances[c.name]["container_stop_event"]
                 self._close_stream_connection(c.name)
@@ -172,7 +197,13 @@ class DockerLogMonitor:
                 processor = self.line_processor_instances[container]["processor"]
                 processor.load_config_variables(self.config)
             # start monitoring new containers that are in the config but not monitored yet
-            containers_to_monitor = [c for c in self.client.containers.list() if c.name in self.selected_containers and c.id not in self.monitored_containers.keys()]
+            if self.config.settings.monitor_all_containers:
+                # Surveiller tous les conteneurs en cours d'exécution
+                containers_to_monitor = [c for c in self.client.containers.list() if c.id not in self.monitored_containers.keys()]
+            else:
+                # Logique normale : surveiller seulement les conteneurs spécifiés
+                containers_to_monitor = [c for c in self.client.containers.list() if c.name in self.selected_containers and c.id not in self.monitored_containers.keys()]
+
             for c in containers_to_monitor:
                 self.logger.info(f"New Container to monitor: {c.name}")
                 if self.line_processor_instances.get(c.name) is not None:
@@ -187,10 +218,16 @@ class DockerLogMonitor:
 
     def _start_message(self, config_reload=False):
         monitored_containers_message = "\n - ".join(c.name for id, c in self.monitored_containers.items())
-        unmonitored_containers = [c for c in self.selected_containers if c not in [c.name for id, c in self.monitored_containers.items()]]
-        message = (f"These containers are being monitored:\n - {monitored_containers_message}" if self.monitored_containers
-                   else f"No selected containers are running. Waiting for new containers...")
-        message = message + ((f"\n\nThese selected containers are not running:\n - " + '\n - '.join(unmonitored_containers)) if unmonitored_containers else "")
+
+        if self.config.settings.monitor_all_containers:
+            message = (f"Monitoring ALL containers (monitor_all_containers enabled):\n - {monitored_containers_message}"
+                      if self.monitored_containers else f"No containers are currently running. Waiting for new containers...")
+        else:
+            unmonitored_containers = [c for c in self.selected_containers if c not in [c.name for id, c in self.monitored_containers.items()]]
+            message = (f"These containers are being monitored:\n - {monitored_containers_message}" if self.monitored_containers
+                       else f"No selected containers are running. Waiting for new containers...")
+            message = message + ((f"\n\nThese selected containers are not running:\n - " + '\n - '.join(unmonitored_containers)) if unmonitored_containers else "")
+
         if self.swarm_mode:
             monitored_swarm_services = []
             for c in self.monitored_containers.values():
@@ -361,9 +398,14 @@ class DockerLogMonitor:
                         container_id = event["Actor"]["ID"]
                         if event.get("Action") == "start":
                             container = self.client.containers.get(container_id)
-                            swarm_label = self._check_if_swarm_to_monitor(container) if self.swarm_mode else None
-                            if swarm_label or container.name in self.selected_containers:
-                                self._monitor_container(container, swarm_service=swarm_label)
+                            should_monitor = self._should_monitor_container(container)
+                            if should_monitor:
+                                if self.swarm_mode and isinstance(should_monitor, str):
+                                    # should_monitor contient le nom du service swarm
+                                    self._monitor_container(container, swarm_service=should_monitor)
+                                else:
+                                    # Conteneur normal ou monitor_all_containers activé
+                                    self._monitor_container(container)
                                 self.logger.info(f"Monitoring new container: {container.name}")
                                 if self.config.settings.disable_container_event_message is False:
                                     send_notification(self.config, "Loggifly", "LoggiFly", f"Monitoring new container: {container.name}", hostname=self.hostname)

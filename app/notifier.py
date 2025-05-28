@@ -5,6 +5,7 @@ import urllib.parse
 import json
 import apprise
 from load_config import GlobalConfig
+from datetime import datetime
 
 logging.getLogger(__name__)
 
@@ -109,10 +110,60 @@ def send_webhook(json_data, url, headers):
         logging.error(f"Error trying to send webhook to url: {url}, headers: {headers}: %s", e)
 
 
+def send_debug_notification(container_name, title, message, keywords=None, hostname=None, file_path=None, attachment_lines=None):
+    """
+    Affiche les notifications dans la console avec un format structuré pour le débogage
+    """
+    logger = logging.getLogger("DEBUG_NOTIFICATIONS")
+
+    # Timestamp actuel
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Construction du message de debug structuré
+    logger.warning("🚨 ALERT TRIGGERED")
+    logger.warning(f"   ├─ Container: {container_name}")
+    logger.warning(f"   ├─ Title: {title}")
+    logger.warning(f"   ├─ Timestamp: {timestamp}")
+
+    if hostname:
+        logger.warning(f"   ├─ Host: {hostname}")
+
+    if keywords:
+        if isinstance(keywords, list):
+            keywords_str = ", ".join([f"'{kw}'" for kw in keywords])
+        else:
+            keywords_str = f"'{keywords}'"
+        logger.warning(f"   ├─ Triggered by keyword(s): {keywords_str}")
+
+    # Affichage du message (première ligne seulement pour éviter l'encombrement)
+    if message:
+        first_line = message.split('\n')[0]
+        if len(first_line) > 80:
+            first_line = first_line[:77] + "..."
+        logger.warning(f"   ├─ Log line: {first_line}")
+
+    # Information sur l'attachement
+    if file_path and attachment_lines:
+        logger.warning(f"   └─ Attachment lines: {attachment_lines}")
+    else:
+        logger.warning(f"   └─ No attachment")
+
+    # Ligne de séparation pour la lisibilité
+    logger.warning("─" * 50)
+
+
 def send_notification(config: GlobalConfig, container_name, title, message, keywords=None, hostname=None, file_path=None):
     message = message.replace(r"\n", "\n").strip()
     # When multiple hosts are set the hostname is added to the title, when only one host is set the hostname is an empty string
     title = f"[{hostname}] - {title}" if hostname else title
+
+    # Obtenir le nombre de lignes d'attachement pour le debug
+    attachment_lines = None
+    if file_path:
+        if container_name in config.containers and config.containers[container_name].attachment_lines:
+            attachment_lines = config.containers[container_name].attachment_lines
+        else:
+            attachment_lines = config.settings.attachment_lines
 
     if (config.notifications and config.notifications.ntfy and config.notifications.ntfy.url and config.notifications.ntfy.topic):
         ntfy_config = get_ntfy_config(config, container_name)
@@ -127,3 +178,6 @@ def send_notification(config: GlobalConfig, container_name, title, message, keyw
         webhook_url = config.notifications.webhook.url
         webhook_headers = config.notifications.webhook.headers
         send_webhook(json_data, webhook_url, webhook_headers)
+
+    if (config.notifications and config.notifications.debug and config.notifications.debug.enabled):
+        send_debug_notification(container_name, title, message, keywords=keywords, hostname=hostname, file_path=file_path, attachment_lines=attachment_lines)

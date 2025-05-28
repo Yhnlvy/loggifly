@@ -94,31 +94,43 @@ class LogProcessor:
         self.load_config_variables(config)
 
     def load_config_variables(self, config):
-        """
-        This function can get called from the log_monitor function in app.py to reload the config variables
-        """
         self.config = config
-        self.container_keywords = self.config.global_keywords.keywords.copy()
-        self.container_keywords_with_attachment = self.config.global_keywords.keywords_with_attachment.copy()
+        self.container_keywords = []
+        self.container_keywords_with_attachment = []
+        self.container_action_keywords = []
+
+        # Ajouter les mots-clés globaux
+        self.container_keywords.extend(keyword for keyword in self.config.global_keywords.keywords if keyword not in self.container_keywords)
+        self.container_keywords_with_attachment.extend(keyword for keyword in self.config.global_keywords.keywords_with_attachment if keyword not in self.container_keywords_with_attachment)
 
         if self.swarm_service:
             self.container_keywords.extend(keyword for keyword in self.config.swarm_services[self.swarm_service].keywords if keyword not in self.container_keywords)
             self.container_keywords_with_attachment.extend(keyword for keyword in self.config.swarm_services[self.swarm_service].keywords_with_attachment if keyword not in self.container_keywords_with_attachment)
-            self.container_action_keywords = []
+            self.container_action_keywords = [keyword for keyword in self.config.swarm_services[self.swarm_service].action_keywords]
 
             self.lines_number_attachment = self.config.swarm_services[self.swarm_service].attachment_lines or self.config.settings.attachment_lines
             self.notification_cooldown = self.config.swarm_services[self.swarm_service].notification_cooldown or self.config.settings.notification_cooldown
             self.action_cooldown = self.config.swarm_services[self.swarm_service].action_cooldown or self.config.settings.action_cooldown or 300
             self.notification_title = self.config.swarm_services[self.swarm_service].notification_title or self.config.settings.notification_title
         else:
-            self.container_keywords.extend(keyword for keyword in self.config.containers[self.container_name].keywords if keyword not in self.container_keywords)
-            self.container_keywords_with_attachment.extend(keyword for keyword in self.config.containers[self.container_name].keywords_with_attachment if keyword not in self.container_keywords_with_attachment)
-            self.container_action_keywords = [keyword for keyword in self.config.containers[self.container_name].action_keywords]
+            # Vérifier si le conteneur est défini dans la configuration
+            if self.container_name in self.config.containers:
+                self.container_keywords.extend(keyword for keyword in self.config.containers[self.container_name].keywords if keyword not in self.container_keywords)
+                self.container_keywords_with_attachment.extend(keyword for keyword in self.config.containers[self.container_name].keywords_with_attachment if keyword not in self.container_keywords_with_attachment)
+                self.container_action_keywords = [keyword for keyword in self.config.containers[self.container_name].action_keywords]
 
-            self.lines_number_attachment = self.config.containers[self.container_name].attachment_lines or self.config.settings.attachment_lines
-            self.notification_cooldown = self.config.containers[self.container_name].notification_cooldown or self.config.settings.notification_cooldown
-            self.action_cooldown = self.config.containers[self.container_name].action_cooldown or self.config.settings.action_cooldown or 300
-            self.notification_title = self.config.containers[self.container_name].notification_title or self.config.settings.notification_title
+                self.lines_number_attachment = self.config.containers[self.container_name].attachment_lines or self.config.settings.attachment_lines
+                self.notification_cooldown = self.config.containers[self.container_name].notification_cooldown or self.config.settings.notification_cooldown
+                self.action_cooldown = self.config.containers[self.container_name].action_cooldown or self.config.settings.action_cooldown or 300
+                self.notification_title = self.config.containers[self.container_name].notification_title or self.config.settings.notification_title
+            else:
+                # Conteneur non défini dans la configuration (mode monitor_all_containers)
+                # Utiliser uniquement les paramètres globaux
+                self.container_action_keywords = []
+                self.lines_number_attachment = self.config.settings.attachment_lines
+                self.notification_cooldown = self.config.settings.notification_cooldown
+                self.action_cooldown = self.config.settings.action_cooldown or 300
+                self.notification_title = self.config.settings.notification_title
 
         self.multi_line_config = self.config.settings.multi_line_entries
         self.time_per_keyword = {}

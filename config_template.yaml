@@ -61,7 +61,7 @@ global_keywords:
     - global_keyword2
 
 notifications:
-  # At least one of these (Ntfy/Apprise/Webhook) is required.
+  # At least one of these (Ntfy/Apprise/Webhook/Debug) is required.
   ntfy:
     url: http://your-ntfy-server    # Required. The URL of your Ntfy instance
     topic: loggifly                 # Required. the topic for Ntfy
@@ -77,6 +77,8 @@ notifications:
     headers:                        # add headers if needed
       Authorization: "Bearer token"
       X-Custom-Header": "Test123"
+  debug:
+    enabled: true                   # Enable debug console notifications (useful for development/testing)
 
 # These are the default settings
 settings:
@@ -85,6 +87,7 @@ settings:
   action_cooldown: 300          # Cooldown period (in seconds) before the next container action can be performed. Maximum is always at least 60s.
   notification_title: default   # configure a custom template for the notification title (see section below)  attachment_lines: 20          # Number of Lines to include in log attachments
   multi_line_entries: True      # Monitor and catch multi-line log entries instead of going line by line.
+  monitor_all_containers: True  # Monitor all running containers automatically (ignores containers list)
   reload_config: True           # When the config file is changed the program reloads the config
   disable_start_message: False  # Suppress startup notification
   disable_shutdown_message: False        # Suppress shutdown notification

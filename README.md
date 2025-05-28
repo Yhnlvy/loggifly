@@ -34,25 +34,35 @@ Get instant alerts for security breaches, system errors, or custom patterns thro
 
 # Content
 
-- [Features](#-features)
-- [Screenshots](#-screenshots)
-- [Quick Start](#️-quick-start)
-- [Configuration Deep Dive](#-Configuration-Deep-Dive)
-  - [Basic config structure](#-basic-structure)
-    - [Settings](#%EF%B8%8F-settings)
-    - [Notifications](#-notifications)
-    - [Containers](#-containers)
-    - [Global Keywords](#-global-keywords)
-  - [Customize Notifications (Templates & Log Filtering)
-](#-customize-notifications-templates--log-filtering)
-  - [Environment Variables](#-environment-variables)
-- [Remote Hosts](#-remote-hosts)
+- [Content](#content)
+- [🚀 Features](#-features)
+- [🖼 Screenshots](#-screenshots)
+    - [🎯 Customize notifications and filter log lines for relevant information:](#-customize-notifications-and-filter-log-lines-for-relevant-information)
+- [⚡️ Quick start](#️-quick-start)
+- [🤿 Configuration Deep Dive](#-configuration-deep-dive)
+  - [📁 Basic Structure](#-basic-structure)
+    - [⚙️ Settings](#️-settings)
+    - [📭 Notifications](#-notifications)
+      - [Ntfy:](#ntfy)
+      - [Apprise:](#apprise)
+      - [Custom Webhook](#custom-webhook)
+    - [🐳 Containers](#-containers)
+    - [🔄 Monitor All Containers](#-monitor-all-containers)
+    - [🌍 Global Keywords](#-global-keywords)
+  - [📝 Customize Notifications (Templates \& Log Filtering)](#-customize-notifications-templates--log-filtering)
+      - [Template for JSON Logs:](#template-for-json-logs)
+      - [Template using named capturing groups in Regex Pattern:](#template-using-named-capturing-groups-in-regex-pattern)
+    - [Add original Log Entry to template:](#add-original-log-entry-to-template)
+  - [🍀 Environment Variables](#-environment-variables)
+- [📡 Remote Hosts](#-remote-hosts)
   - [Labels](#labels)
   - [Remote Hosts Example](#remote-hosts-example)
   - [Socket Proxy](#socket-proxy)
-- [Docker Swarm](#docker-swarm-experimental)
-- [Tips](#-tips)
-- [Support / Buy me a coffee](#support)
+- [Docker Swarm (_Experimental_)](#docker-swarm-experimental)
+- [💡 Tips](#-tips)
+- [Support](#support)
+- [Star History](#star-history)
+  - [License](#license)
 
 
 ---
@@ -101,7 +111,7 @@ Choose your preferred setup method - a simple docker compose with environment va
 > [!Note]
 In previous versions the default location for the `config.yaml` file was `/app/config.yaml`. The old path still works (so not a breaking change) but the new official path is now `/config/config.yaml`.<br>
 LoggiFly will first look in `/config/config.yaml`, and fall back to `/app/config.yaml` if it's not found.<br>
-When `/config` is mounted a config template will be downloaded into that directory. 
+When `/config` is mounted a config template will be downloaded into that directory.
 
 <details><summary><em>Click to expand:</em> 🐋 <strong>Basic Setup: Docker Compose (Environment Variables)</strong></summary>
 <br>
@@ -116,21 +126,21 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # This is where you would put your config.yaml file (ignore if you are only using environment variables)
-      # - ./loggifly/config:/config  
+      # - ./loggifly/config:/config
     environment:
       # Choose at least one notification service
-      NTFY_URL: "https://ntfy.sh"       
-      NTFY_TOPIC: "your_topic"          
+      NTFY_URL: "https://ntfy.sh"
+      NTFY_TOPIC: "your_topic"
       # Token or Username+Password In case you need authentication
       # NTFY_TOKEN:
       # NTFY_USERNAME:
       # NTFY_PASSWORD:
       APPRISE_URL: "discord://..."      # Apprise-compatible URL
-    
+
       CONTAINERS: "vaultwarden,audiobookshelf"        # Comma-separated list
       GLOBAL_KEYWORDS: "error,failed login,password"  # Basic keyword monitoring
       GLOBAL_KEYWORDS_WITH_ATTACHMENT: "critical"     # Attaches a log file to the notification
-    restart: unless-stopped 
+    restart: unless-stopped
 
 ```
 
@@ -144,7 +154,7 @@ services:
 <br>
 Recommended for granular control, regex patterns and action_keywords: <br>
 <br>
-  
+
 **Step 1: Docker Compose**
 
 Use this [docker compose](/docker-compose.yaml) and edit this line:
@@ -168,7 +178,7 @@ containers:
     keywords:
       - error
       - regex: (username|password).*incorrect  # Use regex patterns when you need them
-    # Attach a log file to the notification 
+    # Attach a log file to the notification
     keywords_with_attachment:
       - warn
     # Caution advised! These keywords will trigger a restart/stop of the container
@@ -177,21 +187,21 @@ containers:
       - stop: traceback
       - restart: critical
 
-# Optional. These keywords are being monitored for all configured containers. 
+# Optional. These keywords are being monitored for all configured containers.
 global_keywords:
   keywords:
     - failed
   keywords_with_attachment:
     - critical
 
-notifications:     
+notifications:
   # Configure either Ntfy or Apprise or both
   ntfy:
-    url: http://your-ntfy-server  
-    topic: loggifly                   
-    token: ntfy-token               # Ntfy token in case you need authentication 
-    username: john                  # Ntfy Username+Password in case you need authentication 
-    password: 1234                  # Ntfy Username+Password in case you need authentication 
+    url: http://your-ntfy-server
+    topic: loggifly
+    token: ntfy-token               # Ntfy token in case you need authentication
+    username: john                  # Ntfy Username+Password in case you need authentication
+    password: 1234                  # Ntfy Username+Password in case you need authentication
   apprise:
     url: "discord://webhook-url"    # Any Apprise-compatible URL (https://github.com/caronc/apprise/wiki)
 ```
@@ -218,7 +228,7 @@ The Quick Start only covered the essential settings, here is a more detailed wal
 The `config.yaml` file is divided into four main sections:
 
 1. **`settings`**: Global settings like cooldowns and log levels. (_Optional since they all have default values_)
-2. **`notifications`**: Ntfy (_URL, Topic, Token, Priority and Tags_), your Apprise URL and/or a custom webhook url 
+2. **`notifications`**: Ntfy (_URL, Topic, Token, Priority and Tags_), your Apprise URL and/or a custom webhook url
 3. **`containers`**: Define which Containers to monitor and their specific Keywords (_plus optional settings_).
 4. **`global_keywords`**: Keywords that apply to _all_ monitored Containers.
 
@@ -241,15 +251,16 @@ For the program to function you need to configure:
 These are the default values for the settings:
 
 <details><summary><em>Click to expand:</em><strong> Settings: </strong></summary>
-  
+
 ```yaml
-settings:          
+settings:
   log_level: INFO               # DEBUG, INFO, WARNING, ERROR
   notification_cooldown: 5      # Seconds between alerts for same keyword (per container)
   notification_title: default   # configure a custom template for the notification title (see section below)
   action_cooldown: 300          # Cooldown period (in seconds) before the next container action can be performed. Maximum is always at least 60s.
   attachment_lines: 20          # Number of Lines to include in log attachments
-  multi_line_entries: True      # Monitor and catch multi-line log entries instead of going line by line. 
+  multi_line_entries: True      # Monitor and catch multi-line log entries instead of going line by line.
+  monitor_all_containers: False # Monitor all running containers automatically (ignores containers list)
   reload_config: True           # When the config file is changed the program reloads the config
   disable_start_message: False           # Suppress startup notification
   disable_shutdown_message: False        # Suppress shutdown notification
@@ -289,7 +300,7 @@ notification_title: {container}
 
 ### 📭 Notifications
 
-You can send notifications either directly to **Ntfy** or via **Apprise** to [most other  notification services](https://github.com/caronc/apprise/wiki). 
+You can send notifications either directly to **Ntfy** or via **Apprise** to [most other  notification services](https://github.com/caronc/apprise/wiki).
 
 If you want the data to be sent to your own **custom endpoint** to integrate it into a custom workflow, you can set a custom webhook URL. LoggiFly will send all data in JSON format.
 
@@ -300,15 +311,15 @@ You can also set all three notification options at the same time
 <details><summary><em>Click to expand:</em><strong> Ntfy: </strong></summary>
 
 ```yaml
-notifications:                       
+notifications:
   ntfy:
     url: http://your-ntfy-server    # Required. The URL of your Ntfy instance
     topic: loggifly.                # Required. the topic for Ntfy
-    token: ntfy-token               # Ntfy token in case you need authentication 
-    username: john                  # Ntfy Username+Password in case you need authentication 
-    password: password              # Ntfy Username+Password in case you need authentication 
+    token: ntfy-token               # Ntfy token in case you need authentication
+    username: john                  # Ntfy Username+Password in case you need authentication
+    password: password              # Ntfy Username+Password in case you need authentication
     priority: 3                     # Ntfy priority (1-5)
-    tags: kite,mag                  # Ntfy tags/emojis 
+    tags: kite,mag                  # Ntfy tags/emojis
 ```
 
 </details>
@@ -331,7 +342,7 @@ notifications:
 
 ```yaml
 notifications:
-  webhook: 
+  webhook:
     url: https://custom.endpoint.com/post
     # add headers if needed
     headers:
@@ -345,7 +356,7 @@ If a **webhook** is configured LoggiFly will post a JSON to the URL with the fol
   "container": "...",
   "keywords": [...],
   "title": "...",
-  "message": "...", 
+  "message": "...",
   "host": "..."   # None unless multiple hosts are monitored
 }
 
@@ -353,7 +364,7 @@ If a **webhook** is configured LoggiFly will post a JSON to the URL with the fol
 
 </details>
 
-### 🐳 Containers 
+### 🐳 Containers
 
 Here you can define containers and assign keywords, regex patterns, and optional settings to each one.<br>
 The container names must match the exact container names you would get with `docker ps`.<br>
@@ -375,9 +386,9 @@ containers:
       - keyword3
     action_keywords: # trigger a restart/stop of the container. can not be set globally
       - restart: keyword4
-      - stop: 
+      - stop:
           regex: regex-pattern3 # this is how to set regex patterns for action_keywords
-  
+
 ```
 
 <br>
@@ -388,14 +399,14 @@ Some of the **settings** from the `settings` section can also be set per contain
 ```yaml
 containers:
   container2:
-    ntfy_tags: closed_lock_with_key   
+    ntfy_tags: closed_lock_with_key
     ntfy_priority: 5
     ntfy_topic: container3
     attachment_lines: 50
     notification_title: '{keywords} found in {container}'
-    notification_cooldown: 2  
-    action_cooldown: 60 
-  
+    notification_cooldown: 2
+    action_cooldown: 60
+
     keywords:
       - keyword1
       - regex: regex-pattern1
@@ -415,6 +426,38 @@ containers:
 </details>
 
 
+### 🔄 Monitor All Containers
+
+Instead of specifying individual containers, you can enable automatic monitoring of **all running containers** by setting `monitor_all_containers: true` in the settings section.
+
+<details><summary><em>Click to expand:</em><strong> Monitor All Containers: </strong></summary>
+
+When `monitor_all_containers` is enabled:
+- LoggiFly will automatically monitor **all currently running containers**
+- New containers that start will be **automatically detected and monitored**
+- The `containers` list in the configuration is **ignored** (but you still need `global_keywords` configured)
+- This is particularly useful for dynamic environments where containers are frequently created and destroyed
+
+```yaml
+settings:
+  monitor_all_containers: true  # Enable automatic monitoring of all containers
+
+global_keywords:  # Required when using monitor_all_containers
+  keywords:
+    - error
+    - warning
+  keywords_with_attachment:
+    - critical
+
+# The containers section is ignored when monitor_all_containers is true
+containers: {}  # Can be left empty
+```
+
+**Note:** When using `monitor_all_containers`, you must configure `global_keywords` since individual container configurations are ignored.
+
+</details>
+
+
 ### 🌍 Global Keywords
 
 When `global_keywords` are configured all containers are monitored for these keywords:
@@ -422,7 +465,7 @@ When `global_keywords` are configured all containers are monitored for these key
 <details><summary><em>Click to expand:</em><strong> Global Keywords: </strong></summary>
 
 ```yaml
-global_keywords:              
+global_keywords:
   keywords:
     - error
   keywords_with_attachment: # attach a logfile
@@ -441,7 +484,7 @@ Here are some [examples](#-customize-notifications-and-filter-log-lines-for-rele
 Filtering is most straightforward with logs in JSON Format, but plain text logs can also be parsed by using named groups in the regex pattern.<br>
 
 > [!Note]
-> If you want to modify the notification title take a look at the setting `notification_title` in the [settings section](#%EF%B8%8F-settings). 
+> If you want to modify the notification title take a look at the setting `notification_title` in the [settings section](#%EF%B8%8F-settings).
 
 
 <details><summary><em>Click to expand:</em><strong> Filter Logs and set custom template: </strong></summary>
@@ -455,7 +498,7 @@ Filtering is most straightforward with logs in JSON Format, but plain text logs 
 `json_template` only works if the Logs are in JSON Format. Authelia is one such example.<br>
 You can only use the placeholder variables that exist as keys in the JSON from the log line you want to catch.<br>
 
-Here is an example where you want to catch this very long log entry from Authelia: 
+Here is an example where you want to catch this very long log entry from Authelia:
 
 ```
 {"level":"error","method":"POST","msg":"Unsuccessful 1FA authentication attempt by user 'example_user' and they are banned until 12:23:00PM on May 1 2025 (+02:00)","path":"/api/firstfactor","remote_ip":"192.168.178.191","stack":[{"File":"github.com/authelia/authelia/v4/internal/handlers/response.go","Line":274,"Name":"doMarkAuthenticationAttemptWithRequest"},{"File":"github.com/authelia/authelia/v4/internal/handlers/response.go","Line":258,"Name":"doMarkAuthenticationAttempt"},{"File":"github.com/authelia/authelia/v4/internal/handlers/handler_firstfactor_password.go","Line":51,"Name":"handlerMain.FirstFactorPasswordPOST.func14"},{"File":"github.com/authelia/authelia/v4/internal/middlewares/bridge.go","Line":66,"Name":"handlerMain.(*BridgeBuilder).Build.func7.1"},{"File":"github.com/authelia/authelia/v4/internal/middlewares/headers.go","Line":65,"Name":"SecurityHeadersCSPNone.func1"},{"File":"github.com/authelia/authelia/v4/internal/middlewares/headers.go","Line":105,"Name":"SecurityHeadersNoStore.func1"},{"File":"github.com/authelia/authelia/v4/internal/middlewares/headers.go","Line":30,"Name":"SecurityHeadersBase.func1"},{"File":"github.com/fasthttp/router@v1.5.4/router.go","Line":441,"Name":"(*Router).Handler"},{"File":"github.com/authelia/authelia/v4/internal/middlewares/log_request.go","Line":14,"Name":"handlerMain.LogRequest.func31"},{"File":"github.com/authelia/authelia/v4/internal/middlewares/errors.go","Line":38,"Name":"RecoverPanic.func1"},{"File":"github.com/valyala/fasthttp@v1.59.0/server.go","Line":2380,"Name":"(*Server).serveConn"},{"File":"github.com/valyala/fasthttp@v1.59.0/workerpool.go","Line":225,"Name":"(*workerPool).workerFunc"},{"File":"github.com/valyala/fasthttp@v1.59.0/workerpool.go","Line":197,"Name":"(*workerPool).getCh.func1"},{"File":"runtime/asm_amd64.s","Line":1700,"Name":"goexit"}],"time":"2025-05-01T14:19:29+02:00"}
@@ -467,16 +510,16 @@ containers:
   authelia:
     keywords:
       - keyword: Unsuccessful 1FA authentication
-        json_template: '🚨 Failed Login Attempt:\n{msg}\n🔎 IP: {remote_ip}\n🕐{time}' 
+        json_template: '🚨 Failed Login Attempt:\n{msg}\n🔎 IP: {remote_ip}\n🕐{time}'
       - regex: Unsuccessful.*authentication
-        json_template: '🚨 Failed Login Attempt:\n{msg}\n🔎 IP: {remote_ip}\n🕐{time}' 
+        json_template: '🚨 Failed Login Attempt:\n{msg}\n🔎 IP: {remote_ip}\n🕐{time}'
 ```
 <br>
 
 #### Template using named capturing groups in Regex Pattern:
 
-To filter non JSON Log Lines for certain parts you have to use a regex pattern with **named capturing groups**.<br> 
-Lets take `(?P<group_name>...)` as an example. 
+To filter non JSON Log Lines for certain parts you have to use a regex pattern with **named capturing groups**.<br>
+Lets take `(?P<group_name>...)` as an example.
 `P<group_name>` assigns the name `group_name` to the group.
 The part inside the parentheses `(...)` is the pattern to match.<br>
 Then you can insert the `{group_name}` into your custom message `template`.
@@ -497,7 +540,7 @@ containers:
       - regex: '(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{3}).*Socket.*disconnected from client "(?P<user>[A-Za-z\s]+)"'
         template: '\n🔎 The user {user} was seen!\n🕐 {timestamp}'
         hide_pattern_in_title: true  # Exclude the regex pattern from the notification title for a cleaner look
-      
+
 ```
 
 **Result:**
@@ -547,7 +590,8 @@ Except for `action_keywords`, container specific settings/keywords and regex pat
 | `LOGGIFLY_MODE`              | Set this variable to `swarm` when wanting to use LoggiFly in swarm mode | _N/A_     |
 | `GLOBAL_KEYWORDS`       | Keywords that will be monitored for all containers. Overrides `global_keywords.keywords` from the config.yaml.| _N/A_     |
 | `GLOBAL_KEYWORDS_WITH_ATTACHMENT`| Notifications triggered by these global keywords have a logfile attached. Overrides `global_keywords.keywords_with_attachment` from the config.yaml.| _N/A_     |
-| `NOTIFICATION_COOLDOWN`         | Cooldown period (in seconds) per container per keyword before a new message can be sent  | 5        | 
+| `MONITOR_ALL_CONTAINERS`        | Monitor all running containers automatically (ignores containers list) | False    |
+| `NOTIFICATION_COOLDOWN`         | Cooldown period (in seconds) per container per keyword before a new message can be sent  | 5        |
 | `ACTION_COOLDOWN`         | Cooldown period (in seconds) before the next container action can be performed. Always at least 60s. (`action_keywords` are only configurable in YAML)  | 300        |
 | `LOG_LEVEL`                     | Log Level for LoggiFly container logs.                    | INFO     |
 | `MULTI_LINE_ENTRIES`            | When enabled the program tries to catch log entries that span multiple lines.<br>If you encounter bugs or you simply don't need it you can disable it.| True     |
@@ -582,7 +626,7 @@ If you want to set a label to the mounted docker socket you can do so by adding 
 
 ## Remote Hosts Example
 
-In this example, LoggiFly monitors container logs from the **local host** via a mounted Docker socket, as well as from **two remote Docker hosts** configured with TLS. One of the remote hosts is referred to as ‘foobar’. The local host and the second remote host have no custom label and are identified by their respective hostnames.
+In this example, LoggiFly monitors container logs from the **local host** via a mounted Docker socket, as well as from **two remote Docker hosts** configured with TLS. One of the remote hosts is referred to as 'foobar'. The local host and the second remote host have no custom label and are identified by their respective hostnames.
 
 <details><summary><em>Click to expand:</em> <strong>Remote Hosts: Docker Compose </strong></summary>
 
@@ -591,7 +635,7 @@ version: "3.8"
 services:
   loggifly:
     image: ghcr.io/clemcer/loggifly:latest
-    container_name: loggifly 
+    container_name: loggifly
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./loggifly/config:/config # Place your config.yaml here if you are using one
@@ -607,7 +651,7 @@ services:
       #     ├── cert.pem
       #     └── key.pem
     environment:
-      TZ: Europe/Berlin
+      TZ: Europe/Paris
       DOCKER_HOST: tcp://192.168.178.80:2376,tcp://192.168.178.81:2376|foobar
     restart: unless-stopped
 ```
@@ -629,24 +673,24 @@ version: "3.8"
 services:
   loggifly:
     image: ghcr.io/clemcer/loggifly:latest
-    container_name: loggifly 
+    container_name: loggifly
     volumes:
       - ./loggifly/config:/config # Place your config.yaml here if you are using one
     environment:
-      TZ: Europe/Berlin
+      TZ: Europe/Paris
       DOCKER_HOST: tcp://socket-proxy:2375
     depends_on:
       - socket-proxy
     restart: unless-stopped
-    
+
   socket-proxy:
     image: tecnativa/docker-socket-proxy
     container_name: docker-socket-proxy
     environment:
-      - CONTAINERS=1  
-      - POST=0        
+      - CONTAINERS=1
+      - POST=0
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro  
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
 
 ```
@@ -659,7 +703,7 @@ services:
 
 # Docker Swarm (_Experimental_)
 
-> [!Important] 
+> [!Important]
 Docker Swarm Support is still experimental because I have little to no experience with it and can not say for certain whether it works flawlessly.
 If you notice any bugs or have suggestions let me know.
 
@@ -688,19 +732,19 @@ services:
         delay: 5s
         max_attempts: 5
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro 
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      TZ: Europe/Berlin
+      TZ: Europe/Paris
       LOGGIFLY_MODE: swarm
       # Uncomment the next three variables if you want to only use environment variables instead of a config.yaml
       # SWARM_SERVICES: nginx,redis
       # GLOBAL_KEYWORDS: keyword1,keyword2
       # GLOBAL_KEYWORDS_WITH_ATTACHMENT: keyword3
-      # For more environment variables see the environment variables section in the README 
+      # For more environment variables see the environment variables section in the README
 # Comment out the rest of this file if you are only using environment variables
     configs:
       - source: loggifly-config
-        target: /config/config.yaml  
+        target: /config/config.yaml
 
 configs:
   loggifly-config:
@@ -743,7 +787,7 @@ For all available configuration options, refer to the [Containers section](#-con
 
 # 💡 Tips
 
-1. Ensure containers names **exactly match** your Docker **container names**. 
+1. Ensure containers names **exactly match** your Docker **container names**.
     - Find out your containers names: ```docker ps --format "{{.Names}}" ```
     - 💡 Pro Tip: Define the `container_name:` in your compose files.
 2. **`action_keywords`** can not be set via environment variables, they can only be set per container in the `config.yaml`. The `action_cooldown` is always at least 60s long and defaults to 300s

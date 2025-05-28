@@ -1,0 +1,35 @@
+services:
+  loggifly:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: loggifly-local
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Montage du répertoire de configuration local
+      # Créez le dossier ./loggifly/config et placez-y votre config.yaml
+      - ./loggifly/config:/config
+      # Alternative : montage direct d'un fichier config.yaml
+      # - ./config.yaml:/config/config.yaml
+    environment:
+      - TZ=Europe/Paris
+      # Driver de notification debug activé par défaut pour le développement
+      - DEBUG_NOTIFICATIONS=true
+      # Exemples de variables d'environnement pour une configuration rapide
+      # Décommentez et configurez selon vos besoins :
+      # - NTFY_URL=https://ntfy.sh
+      # - NTFY_TOPIC=loggifly-local
+      # - CONTAINERS=container1,container2
+      # - GLOBAL_KEYWORDS=error,warning,critical
+      # - GLOBAL_KEYWORDS_WITH_ATTACHMENT=fatal,panic
+      # - LOG_LEVEL=DEBUG
+      # - MONITOR_ALL_CONTAINERS=false
+    restart: unless-stopped
+    # Optionnel : réseau personnalisé pour isoler le conteneur
+    # networks:
+    #   - loggifly-network
+
+# Optionnel : définition d'un réseau personnalisé
+# networks:
+#   loggifly-network:
+#     driver: bridge

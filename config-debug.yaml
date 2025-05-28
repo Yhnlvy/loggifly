@@ -1,0 +1,22 @@
+# Configuration simple pour tester le driver debug
+containers:
+  # Laissez vide pour utiliser monitor_all_containers
+
+global_keywords:
+  keywords:
+    - error
+    - warning
+    - failed
+  keywords_with_attachment:
+    - critical
+    - fatal
+
+notifications:
+  debug:
+    enabled: true
+
+settings:
+  log_level: DEBUG
+  monitor_all_containers: true  # Surveille automatiquement tous les conteneurs
+  attachment_lines: 10
+  notification_cooldown: 2

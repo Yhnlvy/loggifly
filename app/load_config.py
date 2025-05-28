@@ -1,4 +1,3 @@
-
 from pydantic import (
     BaseModel,
     Field,
@@ -162,15 +161,19 @@ class WebhookConfig(BaseConfigModel):
     url: str
     headers: Optional[dict] = Field(default=None)
 
+class DebugConfig(BaseConfigModel):
+    enabled: bool = Field(True, description="Enable debug console notifications")
+
 class NotificationsConfig(BaseConfigModel):
     ntfy: Optional[NtfyConfig] = Field(default=None, validate_default=False)
     apprise: Optional[AppriseConfig] = Field(default=None, validate_default=False)
     webhook: Optional[WebhookConfig] = Field(default=None, validate_default=False)
+    debug: Optional[DebugConfig] = Field(default=None, validate_default=False)
 
     @model_validator(mode="after")
     def check_at_least_one(self) -> "NotificationsConfig":
-        if self.ntfy is None and self.apprise is None and self.webhook is None:
-            raise ValueError("At least on of these has to be configured: 'apprise' / 'ntfy' / 'webhook'")
+        if self.ntfy is None and self.apprise is None and self.webhook is None and self.debug is None:
+            raise ValueError("At least one of these has to be configured: 'apprise' / 'ntfy' / 'webhook' / 'debug'")
         return self
 
 class Settings(BaseConfigModel):
@@ -180,6 +183,7 @@ class Settings(BaseConfigModel):
     action_cooldown: Optional[int] = Field(300)
     attachment_lines: int = Field(20, description="Number of log lines to include in attachments")
     multi_line_entries: bool = Field(True, description="Enable multi-line log detection")
+    monitor_all_containers: bool = Field(False, description="Monitor all running containers automatically")
     disable_start_message: bool = Field(False, description="Disable startup notification")
     disable_shutdown_message: bool = Field(False, description="Disable shutdown notification")
     disable_config_reload_message: bool = Field(False, description="Disable config reload notification")
@@ -224,12 +228,18 @@ class GlobalConfig(BaseConfigModel):
     def check_at_least_one(self) -> "GlobalConfig":
         tmp_list = self.global_keywords.keywords + self.global_keywords.keywords_with_attachment
         if not tmp_list:
-            for k in self.containers:
-                tmp_list.extend(self.containers[k].keywords)
+            if self.containers:
+                for k in self.containers:
+                    tmp_list.extend(self.containers[k].keywords)
         if not tmp_list:
             raise ValueError("No keywords configured. You have to set keywords either per container or globally.")
+        
+        # Si monitor_all_containers est activé, on n'a pas besoin de conteneurs spécifiques
+        if self.settings.monitor_all_containers:
+            return self
+            
         if not self.containers and not self.swarm_services:
-            raise ValueError("You have to configure at least one container")
+            raise ValueError("You have to configure at least one container or enable monitor_all_containers")
         return self
 
 
@@ -311,12 +321,13 @@ def load_config(official_path="/config/config.yaml"):
         "notification_cooldown": os.getenv("NOTIFICATION_COOLDOWN"),
         "notification_title": os.getenv("NOTIFICATION_TITLE"),
         "reload_config": False if config_path is None else os.getenv("RELOAD_CONFIG"),
+        "monitor_all_containers": os.getenv("MONITOR_ALL_CONTAINERS"),
         "disable_start_message": os.getenv("DISABLE_START_MESSAGE"),
         "disable_restart_message": os.getenv("DISABLE_CONFIG_RELOAD_MESSAGE"),
         "disable_shutdown_message": os.getenv("DISABLE_SHUTDOWN_MESSAGE"),
         "disable_container_event_message": os.getenv("DISABLE_CONTAINER_EVENT_MESSAGE"),
         "action_cooldown": os.getenv("ACTION_COOLDOWN")
-        }
+    }
     ntfy_values =  {
         "url": os.getenv("NTFY_URL"),
         "topic": os.getenv("NTFY_TOPIC"),
@@ -325,13 +336,16 @@ def load_config(official_path="/config/config.yaml"):
         "tags": os.getenv("NTFY_TAGS"),
         "username": os.getenv("NTFY_USERNAME"),
         "password": os.getenv("NTFY_PASSWORD")
-        }
+    }
     webhook_values = {
         "url": os.getenv("WEBHOOK_URL"),
         "headers":os.getenv("WEBHOOK_HEADERS")
     }
     apprise_values = {
         "url": os.getenv("APPRISE_URL")
+    }
+    debug_values = {
+        "enabled": os.getenv("DEBUG_NOTIFICATIONS")
     }
     global_keywords_values = {
         "keywords": [kw.strip() for kw in os.getenv("GLOBAL_KEYWORDS", "").split(",") if kw.strip()] if os.getenv("GLOBAL_KEYWORDS") else [],
@@ -358,6 +372,9 @@ def load_config(official_path="/config/config.yaml"):
     if webhook_values.get("url"):
         env_config["notifications"]["webhook"] = webhook_values
         yaml_config["notifications"]["webhook"] = {} if yaml_config["notifications"].get("webhook") is None else yaml_config["notifications"]["webhook"]
+    if debug_values.get("enabled"):
+        env_config["notifications"]["debug"] = debug_values
+        yaml_config["notifications"]["debug"] = {} if yaml_config["notifications"].get("debug") is None else yaml_config["notifications"]["debug"]
 
     for k, v in global_keywords_values.items():
         if v:
@@ -375,4 +392,3 @@ def load_config(official_path="/config/config.yaml"):
     logging.info(f"\n ------------- CONFIG ------------- \n{yaml_output}\n ----------------------------------")
 
     return config, config_path
-

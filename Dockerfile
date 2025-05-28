@@ -10,6 +10,8 @@ LABEL org.opencontainers.image.source="https://github.com/clemcer/loggifly"
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY entrypoint.sh .
+COPY config_template.yaml .
+COPY config-debug.yaml .
 COPY app/load_config.py .
 COPY app/notifier.py .
 COPY app/app.py .

@@ -10,5 +10,5 @@ services:
       # edit and rename it to config.yaml or create a new file with your config in it
       - ./loggifly/config.yaml:/config
     environment:
-      - TZ=Europe/Berlin
+      - TZ=Europe/Paris
     restart: unless-stopped
