@@ -1,0 +1,44 @@
+# Configuration pour tester le mode Container Discovery
+containers:
+  # Laissez vide quand container_discovery est activé
+
+global_keywords:
+  keywords:
+    - error
+    - warning
+    - failed
+  keywords_with_attachment:
+    - critical
+    - fatal
+
+# Mode de découverte avancée de conteneurs
+container_discovery:
+  enabled: true                     # Activer la découverte avancée
+  include_patterns:                 # Inclure les conteneurs qui correspondent à ces patterns
+    - "web-*"
+    - "api-*"
+    - "app-*"
+  exclude_patterns:                 # Exclure les conteneurs qui correspondent à ces patterns
+    - "*-test"
+    - "*-temp"
+    - "*-backup"
+  required_labels: []               # Les conteneurs doivent avoir ces labels pour être surveillés
+    # Exemples:
+    # - "monitoring=enabled"        # Décommentez pour activer
+  exclude_labels:                   # Exclure les conteneurs avec ces labels
+    - "monitoring=disabled"
+    - "loggifly.exclude=true"
+    # Alternative : vous pouvez aussi ajouter le label "loggifly.exclude=true" 
+    # au conteneur LoggiFly dans votre docker-compose.yml
+  exclude_system_containers: true   # Exclure les conteneurs système
+
+notifications:
+  debug:
+    enabled: true  # Désactiver le mode debug pour éviter l'affichage des notifications système
+
+settings:
+  log_level: DEBUG
+  attachment_lines: 10
+  notification_cooldown: 2
+  disable_start_message: true       # Désactiver les messages de démarrage
+  disable_config_reload_message: true  # Désactiver les messages de rechargement de config

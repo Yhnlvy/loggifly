@@ -164,6 +164,14 @@ class WebhookConfig(BaseConfigModel):
 class DebugConfig(BaseConfigModel):
     enabled: bool = Field(True, description="Enable debug console notifications")
 
+class ContainerDiscoveryConfig(BaseConfigModel):
+    enabled: bool = Field(False, description="Enable advanced container discovery")
+    include_patterns: List[str] = Field(default=[], description="Patterns for container names to include (supports wildcards)")
+    exclude_patterns: List[str] = Field(default=[], description="Patterns for container names to exclude (supports wildcards)")
+    required_labels: List[str] = Field(default=[], description="Labels that containers must have to be monitored")
+    exclude_labels: List[str] = Field(default=[], description="Labels that exclude containers from monitoring")
+    exclude_system_containers: bool = Field(True, description="Exclude system containers (Docker, Kubernetes, etc.)")
+
 class NotificationsConfig(BaseConfigModel):
     ntfy: Optional[NtfyConfig] = Field(default=None, validate_default=False)
     apprise: Optional[AppriseConfig] = Field(default=None, validate_default=False)
@@ -196,6 +204,7 @@ class GlobalConfig(BaseConfigModel):
     global_keywords: GlobalKeywords
     notifications: NotificationsConfig
     settings: Settings
+    container_discovery: Optional[ContainerDiscoveryConfig] = Field(default=None, validate_default=False)
 
     @model_validator(mode="before")
     def transform_legacy_format(cls, values):
@@ -211,17 +220,18 @@ class GlobalConfig(BaseConfigModel):
                 name: {} for name in values["containers"]
             }
          # Convert list keywords format per container into dict
-        for container in values.get("containers"):
-            if isinstance(values.get("containers").get(container), list):
-                values["containers"][container] = {
-                    "keywords": values["containers"][container],
-                    "keywords_with_attachment": []
-                }
-            elif values.get("containers").get(container) is None:
-                values["containers"][container] = {
-                    "keywords": [],
-                    "keywords_with_attachment": []
-                }
+        if values.get("containers"):
+            for container in values.get("containers"):
+                if isinstance(values.get("containers").get(container), list):
+                    values["containers"][container] = {
+                        "keywords": values["containers"][container],
+                        "keywords_with_attachment": []
+                    }
+                elif values.get("containers").get(container) is None:
+                    values["containers"][container] = {
+                        "keywords": [],
+                        "keywords_with_attachment": []
+                    }
         return values
 
     @model_validator(mode="after")
@@ -234,12 +244,12 @@ class GlobalConfig(BaseConfigModel):
         if not tmp_list:
             raise ValueError("No keywords configured. You have to set keywords either per container or globally.")
         
-        # Si monitor_all_containers est activé, on n'a pas besoin de conteneurs spécifiques
-        if self.settings.monitor_all_containers:
+        # Si monitor_all_containers ou container_discovery est activé, on n'a pas besoin de conteneurs spécifiques
+        if self.settings.monitor_all_containers or (self.container_discovery and self.container_discovery.enabled):
             return self
             
         if not self.containers and not self.swarm_services:
-            raise ValueError("You have to configure at least one container or enable monitor_all_containers")
+            raise ValueError("You have to configure at least one container, enable monitor_all_containers, or enable container_discovery")
         return self
 
 
@@ -313,7 +323,7 @@ def load_config(official_path="/config/config.yaml"):
     """
     -------------------------LOAD ENVIRONMENT VARIABLES---------------------
     """
-    env_config = { "notifications": {}, "settings": {}, "global_keywords": {}, "containers": {}}
+    env_config = { "notifications": {}, "settings": {}, "global_keywords": {}, "containers": {}, "container_discovery": {}}
     settings_values = {
         "log_level": os.getenv("LOG_LEVEL"),
         "attachment_lines": os.getenv("ATTACHMENT_LINES"),
@@ -347,6 +357,14 @@ def load_config(official_path="/config/config.yaml"):
     debug_values = {
         "enabled": os.getenv("DEBUG_NOTIFICATIONS")
     }
+    container_discovery_values = {
+        "enabled": os.getenv("CONTAINER_DISCOVERY_ENABLED"),
+        "include_patterns": [p.strip() for p in os.getenv("CONTAINER_DISCOVERY_INCLUDE_PATTERNS", "").split(",") if p.strip()] if os.getenv("CONTAINER_DISCOVERY_INCLUDE_PATTERNS") else [],
+        "exclude_patterns": [p.strip() for p in os.getenv("CONTAINER_DISCOVERY_EXCLUDE_PATTERNS", "").split(",") if p.strip()] if os.getenv("CONTAINER_DISCOVERY_EXCLUDE_PATTERNS") else [],
+        "required_labels": [l.strip() for l in os.getenv("CONTAINER_DISCOVERY_REQUIRED_LABELS", "").split(",") if l.strip()] if os.getenv("CONTAINER_DISCOVERY_REQUIRED_LABELS") else [],
+        "exclude_labels": [l.strip() for l in os.getenv("CONTAINER_DISCOVERY_EXCLUDE_LABELS", "").split(",") if l.strip()] if os.getenv("CONTAINER_DISCOVERY_EXCLUDE_LABELS") else [],
+        "exclude_system_containers": os.getenv("CONTAINER_DISCOVERY_EXCLUDE_SYSTEM")
+    }
     global_keywords_values = {
         "keywords": [kw.strip() for kw in os.getenv("GLOBAL_KEYWORDS", "").split(",") if kw.strip()] if os.getenv("GLOBAL_KEYWORDS") else [],
         "keywords_with_attachment": [kw.strip() for kw in os.getenv("GLOBAL_KEYWORDS_WITH_ATTACHMENT", "").split(",") if kw.strip()] if os.getenv("GLOBAL_KEYWORDS_WITH_ATTACHMENT") else [],
@@ -375,6 +393,10 @@ def load_config(official_path="/config/config.yaml"):
     if debug_values.get("enabled"):
         env_config["notifications"]["debug"] = debug_values
         yaml_config["notifications"]["debug"] = {} if yaml_config["notifications"].get("debug") is None else yaml_config["notifications"]["debug"]
+
+    if any(container_discovery_values.values()):
+        env_config["container_discovery"] = container_discovery_values
+        yaml_config["container_discovery"] = {} if yaml_config.get("container_discovery") is None else yaml_config["container_discovery"]
 
     for k, v in global_keywords_values.items():
         if v:

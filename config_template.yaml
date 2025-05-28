@@ -56,9 +56,27 @@ containers:
 # Global keywords are applied to all containers
 global_keywords:
   keywords:
-    - global_keyword1
+    - error
+    - warning
+    - failed
   keywords_with_attachment:
-    - global_keyword2
+    - critical
+    - fatal
+
+# Advanced container discovery (alternative to specifying containers manually)
+container_discovery:
+  enabled: false                    # Enable advanced container discovery
+  include_patterns:                 # Patterns for container names to include (supports wildcards)
+    - "web-*"
+    - "api-*"
+  exclude_patterns:                 # Patterns for container names to exclude (supports wildcards)
+    - "*-test"
+    - "temp-*"
+  required_labels:                  # Labels that containers must have to be monitored
+    - "monitoring=enabled"
+  exclude_labels:                   # Labels that exclude containers from monitoring
+    - "monitoring=disabled"
+  exclude_system_containers: true   # Exclude system containers (Docker, Kubernetes, etc.)
 
 notifications:
   # At least one of these (Ntfy/Apprise/Webhook/Debug) is required.

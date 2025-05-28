@@ -48,6 +48,7 @@ Get instant alerts for security breaches, system errors, or custom patterns thro
       - [Custom Webhook](#custom-webhook)
     - [🐳 Containers](#-containers)
     - [🔄 Monitor All Containers](#-monitor-all-containers)
+    - [🎯 Advanced Container Discovery](#-advanced-container-discovery)
     - [🌍 Global Keywords](#-global-keywords)
   - [📝 Customize Notifications (Templates \& Log Filtering)](#-customize-notifications-templates--log-filtering)
       - [Template for JSON Logs:](#template-for-json-logs)
@@ -71,6 +72,7 @@ Get instant alerts for security breaches, system errors, or custom patterns thro
 
 - **🔍 Plain Text, Regex & Multi-Line Log Detection**: Catch simple keywords or complex patterns in log entries that span multiple lines.
 - **🚨 Ntfy/Apprise Alerts**: Send notifications directly to Ntfy or via Apprise to 100+ different services (Slack, Discord, Telegram) or even to your own custom endpoint.
+- **🎯 Advanced Container Discovery**: Automatically discover and monitor containers based on patterns, labels, and intelligent filtering rules.
 - **🔁 Trigger Stop/Restart**: A restart/stop of the monitored container can be triggered on specific critical keywords.
 - **📁 Log Attachments**: Automatically include a log file to the notification for context.
 - **⚡ Automatic Reload on Config Change**: The program automatically reloads the `config.yaml` when it detects that the file has been changed.
@@ -166,7 +168,7 @@ If you want you can configure some of the settings or sensitive values like ntfy
 
 **Step 2: Configure Your config.yaml**
 
-If `/config` is mounted a **[template file](/config_template.yaml) will be downloaded** into that directory. You can edit the downloaded template file and rename it to `config.yaml` to use it.<br>
+If `/config` is mounted a **[template file](/examples/config_template.yaml) will be downloaded** into that directory. You can edit the downloaded template file and rename it to `config.yaml` to use it.<br>
 You can also take a look at the [Configuration-Deep-Dive](#-Configuration-Deep-Dive) for all the configuration options.<br>
 
 Or you can just edit and copy paste the following **minimal config** into a newly created `config.yaml` file in the mounted `/config` directory:
@@ -243,7 +245,7 @@ For the program to function you need to configure:
 
 [Here](/config_template.yaml) you can find a **config template** with all available configuration options and explaining comments. When `/config` is mounted in the volumes section of your docker compose this template file will automatically be downloaded. <br>
 
-[Here](/config_example.yaml) you can find an example config with some **use cases**.
+[Here](/examples/config_example.yaml) you can find an example config with some **use cases**.
 
 
 ### ⚙️ Settings
@@ -458,6 +460,81 @@ containers: {}  # Can be left empty
 </details>
 
 
+### 🎯 Advanced Container Discovery
+
+For even more granular control over which containers to monitor, you can use the **Container Discovery** mode. This advanced feature allows you to automatically discover and monitor containers based on **patterns**, **labels**, and **filters**.
+
+<details><summary><em>Click to expand:</em><strong> Container Discovery: </strong></summary>
+
+Container Discovery provides intelligent filtering capabilities that go beyond simple "monitor all" functionality:
+
+- **Pattern-based filtering**: Include/exclude containers using wildcard patterns
+- **Label-based filtering**: Monitor containers based on Docker labels
+- **System container exclusion**: Automatically exclude Docker/Kubernetes system containers
+- **Priority-based filtering**: Exclusions always take precedence over inclusions
+
+```yaml
+container_discovery:
+  enabled: true                     # Enable advanced container discovery
+  include_patterns:                 # Patterns for container names to include (supports wildcards)
+    - "web-*"
+    - "api-*"
+    - "app-*"
+  exclude_patterns:                 # Patterns for container names to exclude (supports wildcards)
+    - "*-test"
+    - "*-temp"
+    - "*-backup"
+  required_labels:                  # Labels that containers must have to be monitored
+    - "monitoring=enabled"
+    - "environment=production"
+  exclude_labels:                   # Labels that exclude containers from monitoring
+    - "monitoring=disabled"
+    - "loggifly.exclude=true"
+  exclude_system_containers: true   # Exclude system containers (Docker, Kubernetes, etc.)
+
+global_keywords:  # Required when using container_discovery
+  keywords:
+    - error
+    - warning
+  keywords_with_attachment:
+    - critical
+
+# The containers section is ignored when container_discovery is enabled
+containers: {}  # Can be left empty
+```
+
+**How Container Discovery Works:**
+
+1. **System Container Exclusion**: If enabled, automatically excludes Docker, Kubernetes, and other system containers
+2. **Label Exclusions**: Containers with exclude labels are immediately filtered out (highest priority)
+3. **Pattern Exclusions**: Containers matching exclude patterns are filtered out
+4. **Required Labels**: Containers must have all specified required labels
+5. **Pattern Inclusions**: If specified, containers must match at least one include pattern
+6. **Default Inclusion**: If no include patterns are specified, containers that pass all filters are included
+
+**Example Use Cases:**
+
+- **Production Environment**: Monitor only production containers with specific labels
+- **Microservices**: Monitor all API and web services while excluding test containers
+- **Development**: Monitor application containers but exclude databases and caches
+- **Kubernetes**: Exclude system pods while monitoring application workloads
+
+**Environment Variables for Container Discovery:**
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `CONTAINER_DISCOVERY_ENABLED` | Enable container discovery mode | `true` |
+| `CONTAINER_DISCOVERY_INCLUDE_PATTERNS` | Comma-separated include patterns | `web-*,api-*` |
+| `CONTAINER_DISCOVERY_EXCLUDE_PATTERNS` | Comma-separated exclude patterns | `*-test,*-temp` |
+| `CONTAINER_DISCOVERY_REQUIRED_LABELS` | Comma-separated required labels | `monitoring=enabled,env=prod` |
+| `CONTAINER_DISCOVERY_EXCLUDE_LABELS` | Comma-separated exclude labels | `monitoring=disabled` |
+| `CONTAINER_DISCOVERY_EXCLUDE_SYSTEM` | Exclude system containers | `true` |
+
+**Note:** When using `container_discovery`, you must configure `global_keywords` since individual container configurations are ignored. Container Discovery takes precedence over `monitor_all_containers` if both are enabled.
+
+</details>
+
+
 ### 🌍 Global Keywords
 
 When `global_keywords` are configured all containers are monitored for these keywords:
@@ -601,6 +678,12 @@ Except for `action_keywords`, container specific settings/keywords and regex pat
 | `DISBLE_SHUTDOWN_MESSAGE`       | Disable shutdown message.                                 | False     |
 | `DISABLE_CONFIG_RELOAD_MESSAGE`       | Disable message when the config file is reloaded.| False     |
 | `DISABLE_CONTAINER_EVENT_MESSAGE`       | Disable message when the monitoring of a container stops or starts.| False     |
+| `CONTAINER_DISCOVERY_ENABLED`   | Enable advanced container discovery mode | False    |
+| `CONTAINER_DISCOVERY_INCLUDE_PATTERNS` | Comma-separated patterns for container names to include (supports wildcards) | _N/A_    |
+| `CONTAINER_DISCOVERY_EXCLUDE_PATTERNS` | Comma-separated patterns for container names to exclude (supports wildcards) | _N/A_    |
+| `CONTAINER_DISCOVERY_REQUIRED_LABELS` | Comma-separated labels that containers must have to be monitored | _N/A_    |
+| `CONTAINER_DISCOVERY_EXCLUDE_LABELS` | Comma-separated labels that exclude containers from monitoring | _N/A_    |
+| `CONTAINER_DISCOVERY_EXCLUDE_SYSTEM` | Exclude system containers (Docker, Kubernetes, etc.) | True     |
 
 </details>
 
