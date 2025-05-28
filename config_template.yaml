@@ -2,7 +2,7 @@
 #
 # This is a template for the config.yaml file.
 # You can edit this file and remove all the parts you don't need.
-# For the program to function you need to configure: 
+# For the program to function you need to configure:
 #   - at least one container
 #   - at least one notification service (Ntfy or Apprise)
 #   - at least one keyword (either set globally or per container)
@@ -33,26 +33,26 @@ containers:
     action_keywords: # trigger a restart/stop of the container. can not be set globally
       - restart: keyword3
       - stop: keyword4
-  
+
   container4:
   # The next 6 settings override the global values only for this container
-    ntfy_tags: closed_lock_with_key   
+    ntfy_tags: closed_lock_with_key
     ntfy_priority: 5
     ntfy_topic: container4
     notification_title: '{keywords} found in {container}' # modify the notification title for this container
-    attachment_lines: 50     
-    notification_cooldown: 2  
+    attachment_lines: 50
+    notification_cooldown: 2
     action_cooldown: 300
 
     keywords:
       - keyword1
     keywords_with_attachment:
       - keyword2
-    action_keywords:  
+    action_keywords:
       - stop: keyword3
-      - restart: 
+      - restart:
           regex: regex-pattern # this is how to set regex patterns for action_keywords
-          
+
 # Global keywords are applied to all containers
 global_keywords:
   keywords:
@@ -60,31 +60,31 @@ global_keywords:
   keywords_with_attachment:
     - global_keyword2
 
-notifications:                       
+notifications:
   # At least one of these (Ntfy/Apprise/Webhook) is required.
   ntfy:
     url: http://your-ntfy-server    # Required. The URL of your Ntfy instance
     topic: loggifly                 # Required. the topic for Ntfy
-    token: ntfy-token               # Ntfy token in case you need authentication 
-    username: john                  # Ntfy Username+Password in case you need authentication 
-    password: password              # Ntfy Username+Password in case you need authentication 
+    token: ntfy-token               # Ntfy token in case you need authentication
+    username: john                  # Ntfy Username+Password in case you need authentication
+    password: password              # Ntfy Username+Password in case you need authentication
     priority: 3                     # Ntfy priority (1-5)
-    tags: kite,mag                  # Ntfy tags/emojis 
+    tags: kite,mag                  # Ntfy tags/emojis
   apprise:
     url: "discord://webhook-url"    # Any Apprise-compatible URL (https://github.com/caronc/apprise/wiki)
-  webhook: 
+  webhook:
     url: https://custom.endpoint.com/post
     headers:                        # add headers if needed
       Authorization: "Bearer token"
-      X-Custom-Header": "Test123"  
+      X-Custom-Header": "Test123"
 
 # These are the default settings
-settings:          
+settings:
   log_level: INFO               # DEBUG, INFO, WARNING, ERROR
   notification_cooldown: 5      # Seconds between alerts for same keyword (per container)
   action_cooldown: 300          # Cooldown period (in seconds) before the next container action can be performed. Maximum is always at least 60s.
   notification_title: default   # configure a custom template for the notification title (see section below)  attachment_lines: 20          # Number of Lines to include in log attachments
-  multi_line_entries: True      # Monitor and catch multi-line log entries instead of going line by line. 
+  multi_line_entries: True      # Monitor and catch multi-line log entries instead of going line by line.
   reload_config: True           # When the config file is changed the program reloads the config
   disable_start_message: False  # Suppress startup notification
   disable_shutdown_message: False        # Suppress shutdown notification

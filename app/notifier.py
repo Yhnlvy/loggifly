@@ -33,7 +33,7 @@ def send_apprise_notification(url, message, title, file_path=None):
     apobj = apprise.Apprise()
     apobj.add(url)
     message = ("This message had to be shortened: \n" if len(message) > 1900 else "") + message[:1900]
-    try: 
+    try:
         if file_path is None:
             apobj.notify(
                 title=title,
@@ -80,7 +80,7 @@ def send_ntfy_notification(ntfy_config, message, title, file_path=None):
                     )
         else:
             response = requests.post(
-                f"{ntfy_config['url']}/{ntfy_config['topic']}", 
+                f"{ntfy_config['url']}/{ntfy_config['topic']}",
                 data=message,
                 headers=headers
             )
@@ -93,7 +93,7 @@ def send_ntfy_notification(ntfy_config, message, title, file_path=None):
 
 
 def send_webhook(json_data, url, headers):
-    try: 
+    try:
         response = requests.post(
             url=url,
             headers=headers,

@@ -6,7 +6,7 @@ from pydantic import (
     model_validator,
     ConfigDict,
     SecretStr,
-    ValidationError   
+    ValidationError
 )
 from typing import Dict, List, Optional, Union
 import os
@@ -15,8 +15,8 @@ import yaml
 
 logging.getLogger(__name__)
 
-""" 
-this may look unnecessarily complicated but I wanted to learn and use pydantic 
+"""
+this may look unnecessarily complicated but I wanted to learn and use pydantic
 I didn't manage to use pydantic's integrated environment variable loading
 because I needed env to override yaml data and yaml to override default values and I could not get it to work.
 So now I first load the yaml config and the environment variables, merge them and then I validate the merged config with pydantic
@@ -61,7 +61,7 @@ class KeywordBase(BaseModel):
                             continue
                 values[field] = converted
         return values
-    
+
 class ActionKeywords(BaseModel):
     action_keywords: List[Union[str, Dict[str, Union[str, Dict[str, str]]]]] = []
 
@@ -76,7 +76,7 @@ class ActionKeywords(BaseModel):
                     continue
                 for key, val in kw.items():
                     if not val:
-                        logging.warning(f"Ignoring Error in config for action_keywords: Wrong Input: '{key}: {val}'.") 
+                        logging.warning(f"Ignoring Error in config for action_keywords: Wrong Input: '{key}: {val}'.")
                         continue
                     # convert Integer to String
                     if isinstance(val, int):
@@ -89,15 +89,15 @@ class ActionKeywords(BaseModel):
                             else:
                                 logging.warning(f"Ignoring Error in config for action_keywords: Wrong Input: '{key}: {val}' regex keyword is not a valid value.")
                         else:
-                            logging.warning(f"Ignoring Error in config for action_keywords: Wrong Input: '{key}: {val}'. If you put a dictionary after 'restart'/'stop' only 'regex' is allowed as a key.") 
+                            logging.warning(f"Ignoring Error in config for action_keywords: Wrong Input: '{key}: {val}'. If you put a dictionary after 'restart'/'stop' only 'regex' is allowed as a key.")
                     else:
                         converted.append({key: val})
             else:
                 logging.warning(f"Ignoring Error in config for action_keywords: Wrong Input: '{kw}'. You have to set a dictionary with 'restart' or 'stop' as key.")
         return converted
-    
 
-class ContainerConfig(BaseConfigModel, KeywordBase, ActionKeywords):    
+
+class ContainerConfig(BaseConfigModel, KeywordBase, ActionKeywords):
     ntfy_tags: Optional[str] = None
     ntfy_topic: Optional[str] = None
     ntfy_priority: Optional[int] = None
@@ -124,7 +124,7 @@ class ContainerConfig(BaseConfigModel, KeywordBase, ActionKeywords):
                 logging.warning(f"Error in config for ntfy_priority:'{v}'. Only 'max', 'urgent', 'high', 'default', 'low', 'min' are allowed. Using default: '3'")
                 return 3
         return v
-    
+
 class GlobalKeywords(BaseConfigModel, KeywordBase):
     pass
 
@@ -155,7 +155,7 @@ class NtfyConfig(BaseConfigModel):
                 return 3
         return v
 
-class AppriseConfig(BaseConfigModel):  
+class AppriseConfig(BaseConfigModel):
     url: SecretStr = Field(..., description="Apprise compatible URL")
 
 class WebhookConfig(BaseConfigModel):
@@ -173,7 +173,7 @@ class NotificationsConfig(BaseConfigModel):
             raise ValueError("At least on of these has to be configured: 'apprise' / 'ntfy' / 'webhook'")
         return self
 
-class Settings(BaseConfigModel):    
+class Settings(BaseConfigModel):
     log_level: str = Field("INFO", description="Logging level (DEBUG, INFO, WARNING, ERROR)")
     notification_cooldown: int = Field(5, description="Cooldown in seconds for repeated alerts")
     notification_title: str = Field("default", description="Set a template for the notification title")
@@ -219,7 +219,7 @@ class GlobalConfig(BaseConfigModel):
                     "keywords_with_attachment": []
                 }
         return values
-    
+
     @model_validator(mode="after")
     def check_at_least_one(self) -> "GlobalConfig":
         tmp_list = self.global_keywords.keywords + self.global_keywords.keywords_with_attachment
@@ -231,7 +231,7 @@ class GlobalConfig(BaseConfigModel):
         if not self.containers and not self.swarm_services:
             raise ValueError("You have to configure at least one container")
         return self
-    
+
 
 def format_pydantic_error(e: ValidationError) -> str:
     error_messages = []
@@ -249,7 +249,7 @@ def mask_secret_str(data):
     elif isinstance(data, list):
         return [mask_secret_str(item) for item in data]
     elif isinstance(data, SecretStr):
-        return "**********"  
+        return "**********"
     else:
         return data
 
@@ -274,7 +274,7 @@ def load_config(official_path="/config/config.yaml"):
     yaml_config = None
     legacy_path = "/app/config.yaml"
     paths = [official_path, legacy_path]
-    for path in paths: 
+    for path in paths:
         logging.info(f"Trying path: {path}")
         if os.path.isfile(path):
             try:
@@ -310,13 +310,13 @@ def load_config(official_path="/config/config.yaml"):
         "multi_line_entries": os.getenv("MULTI_LINE_ENTRIES"),
         "notification_cooldown": os.getenv("NOTIFICATION_COOLDOWN"),
         "notification_title": os.getenv("NOTIFICATION_TITLE"),
-        "reload_config": False if config_path is None else os.getenv("RELOAD_CONFIG"), 
+        "reload_config": False if config_path is None else os.getenv("RELOAD_CONFIG"),
         "disable_start_message": os.getenv("DISABLE_START_MESSAGE"),
         "disable_restart_message": os.getenv("DISABLE_CONFIG_RELOAD_MESSAGE"),
         "disable_shutdown_message": os.getenv("DISABLE_SHUTDOWN_MESSAGE"),
         "disable_container_event_message": os.getenv("DISABLE_CONTAINER_EVENT_MESSAGE"),
         "action_cooldown": os.getenv("ACTION_COOLDOWN")
-        } 
+        }
     ntfy_values =  {
         "url": os.getenv("NTFY_URL"),
         "topic": os.getenv("NTFY_TOPIC"),
@@ -352,7 +352,7 @@ def load_config(official_path="/config/config.yaml"):
     if any(ntfy_values.values()):
         env_config["notifications"]["ntfy"] = ntfy_values
         yaml_config["notifications"]["ntfy"] = {} if yaml_config["notifications"].get("ntfy") is None else yaml_config["notifications"]["ntfy"]
-    if apprise_values["url"]: 
+    if apprise_values["url"]:
         env_config["notifications"]["apprise"] = apprise_values
         yaml_config["notifications"]["apprise"] = {} if yaml_config["notifications"].get("apprise") is None else yaml_config["notifications"]["apprise"]
     if webhook_values.get("url"):
@@ -362,7 +362,7 @@ def load_config(official_path="/config/config.yaml"):
     for k, v in global_keywords_values.items():
         if v:
             env_config["global_keywords"][k]= v
-    for key, value in settings_values.items(): 
+    for key, value in settings_values.items():
         if value is not None:
             env_config["settings"][key] = value
     # Merge environment variables and yaml config

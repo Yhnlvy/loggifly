@@ -26,13 +26,13 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)    
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 logging.getLogger("docker").setLevel(logging.INFO)
 logging.getLogger("watchdog").setLevel(logging.WARNING)
 
 
 def create_handle_signal(monitor_instances, config, config_observer):
-    global_shutdown_event = threading.Event()   
+    global_shutdown_event = threading.Event()
 
     def handle_signal(signum, frame):
         if not config.settings.disable_shutdown_message:
@@ -47,20 +47,20 @@ def create_handle_signal(monitor_instances, config, config_observer):
             threads.append(thread)
             thread.start()
         for thread in threads:
-            thread.join(timeout=2)    
+            thread.join(timeout=2)
         global_shutdown_event.set()
 
     return handle_signal, global_shutdown_event
-    
+
 
 class ConfigHandler(FileSystemEventHandler):
     """
     When a config.yaml change is detected, the reload_config method is called on each host's DockerLogMonitor instance.
     This method then updates all LogProcessor instances (from line_processor.py) by calling their load_config_variables function.
-    This ensures that any new keywords, settings, or other configuration changes are correctly applied especiaööy in the code that handles keyword searching in line_processor.py.    
+    This ensures that any new keywords, settings, or other configuration changes are correctly applied especiaööy in the code that handles keyword searching in line_processor.py.
     """
     def __init__(self, monitor_instances, config):
-        self.monitor_instances = monitor_instances  
+        self.monitor_instances = monitor_instances
         self.last_config_reload_time = 0
         self.config = config
         self.reload_timer = None
@@ -92,7 +92,7 @@ def start_config_watcher(monitor_instances, config, path):
     observer.schedule(ConfigHandler(monitor_instances, config), path=path, recursive=False)
     observer.start()
     return observer
-    
+
 
 def check_monitor_status(docker_hosts, global_shutdown_event):
     """
@@ -110,7 +110,7 @@ def check_monitor_status(docker_hosts, global_shutdown_event):
                         return
                     tls_config, label = values["tls_config"], values["label"]
                     new_client = None
-                    try:    
+                    try:
                         new_client = docker.DockerClient(base_url=host, tls=tls_config)
                     except docker.errors.DockerException as e:
                         logging.warning(f"Could not reconnect to {host} ({label}): {e}")
@@ -130,13 +130,13 @@ def check_monitor_status(docker_hosts, global_shutdown_event):
 def create_docker_clients() -> dict[str, dict[str, Any]]: # {host: {client: DockerClient, tls_config: TLSConfig, label: str}}
     """
     This function creates Docker clients for all hosts specified in the DOCKER_HOST environment variables + the mounted docker socket.
-    TLS certificates are searched in '/certs/{ca,cert,key}'.pem 
+    TLS certificates are searched in '/certs/{ca,cert,key}'.pem
     or '/certs/{host}/{ca,cert,key}.pem' (to use in case of multiple hosts) with {host} being the IP or FQDN of the host.
     """
     def get_tls_config(hostname):
         cert_locations = [
-            (os.path.join("/certs", hostname)),   
-            (os.path.join("/certs"))             
+            (os.path.join("/certs", hostname)),
+            (os.path.join("/certs"))
         ]
 
         for cert_dir in cert_locations:
@@ -144,7 +144,7 @@ def create_docker_clients() -> dict[str, dict[str, Any]]: # {host: {client: Dock
             ca = os.path.join(cert_dir, "ca.pem")
             cert = os.path.join(cert_dir, "cert.pem")
             key = os.path.join(cert_dir, "key.pem")
-            
+
             if all(os.path.exists(f) for f in [ca, cert, key]):
                 logging.debug(f"Found TLS certs for {hostname} in {cert_dir}")
                 return TLSConfig(client_cert=(cert, key), ca_cert=ca, verify=True)
@@ -163,7 +163,7 @@ def create_docker_clients() -> dict[str, dict[str, Any]]: # {host: {client: Dock
     if os.path.exists("/var/run/docker.sock"):
         logging.debug(f"Path to docker socket exists: True")
         if not any(h[0] == "unix:///var/run/docker.sock" for h in hosts):
-            hosts.append(("unix:///var/run/docker.sock", None)) 
+            hosts.append(("unix:///var/run/docker.sock", None))
 
     logging.debug(f"Configured docker hosts to connect to: {[host for (host, _) in hosts]}")
 
@@ -192,7 +192,7 @@ def create_docker_clients() -> dict[str, dict[str, Any]]: # {host: {client: Dock
             logging.error(f"Unexpected error creating Docker client for {host}: {e}")
             logging.debug(f"Traceback: {traceback.format_exc()}")
             continue
-        
+
     if len(docker_hosts) == 0:
         logging.critical("Could not connect to any docker hosts. Please check your DOCKER_HOST environment variable or mounted docker socket.")
         logging.info("Waiting 10s to prevent restart loop...")
@@ -227,11 +227,11 @@ def start_loggifly():
                 logging.warning(f"Could not get hostname for {host}. LoggiFly will call this host '{hostname}' in notifications and in logging to differentiate it from the other hosts."
                     f"\nThis error might have been raised because you are using a Socket Proxy without the environment variable 'INFO=1'"
                     f"\nYou can also set a label for the docker host in the DOCKER_HOST environment variable like this: 'tcp://host:2375|label' to use instead of the hostname."
-                    f"\nError details: {e}")    
-                                
+                    f"\nError details: {e}")
+
         logging.info(f"Starting monitoring for {host} {'(' + hostname + ')' if hostname else ''}")
         monitor = DockerLogMonitor(config, hostname, host)
-        monitor.start(client)   
+        monitor.start(client)
         docker_hosts[host]["monitor"] = monitor
 
     monitor_instances = [docker_hosts[host]["monitor"] for host in docker_hosts.keys()]
@@ -244,7 +244,7 @@ def start_loggifly():
 
     handle_signal, global_shutdown_event = create_handle_signal(monitor_instances, config, config_observer)
     signal.signal(signal.SIGTERM, handle_signal)
-    signal.signal(signal.SIGINT, handle_signal)   
+    signal.signal(signal.SIGINT, handle_signal)
 
     # Start the thread that checks whether the docker hosts are still monitored and tries to reconnect if the connection is lost.
     check_monitor_status(docker_hosts, global_shutdown_event)
@@ -254,4 +254,4 @@ def start_loggifly():
 if __name__ == "__main__":
     global_shutdown_event = start_loggifly()
     global_shutdown_event.wait()
-    
+

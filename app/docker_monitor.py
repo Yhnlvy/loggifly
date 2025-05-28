@@ -13,20 +13,20 @@ from line_processor import LogProcessor
 
 class DockerLogMonitor:
     """
-    In this class a thread is started for every container that is running and set in the config 
+    In this class a thread is started for every container that is running and set in the config
     One thread is started to monitor docker events to watch for container starts/stops to start or stop the monitoring of containers.
     There are a few collections that are referenced between functions I want to document here:
 
         - self.line_processor_instances: Dict keyed by container.name, each containing a dict with {'processor' processor, 'container_stop_event': container_stop_event}
             - processor is an instance of the LogProcessor class (line_processor.py) and is gets fed the log lines from the container one by one to search for keywords among other things.
-                It is stored so that the reload_config_variables function can be called to update keywords, settings, etc when the config.yaml changes. 
+                It is stored so that the reload_config_variables function can be called to update keywords, settings, etc when the config.yaml changes.
                 When a container is stopped and started again the old processor instance is re-used.
             - container_stop_event is a threading event used to stop the threads that are running to monitor one container (log_monitor (with log stream and flush thread)
-        
+
         - self.stream_connections: Dict of log stream connections keyed by container.name (effectively releasing the blocking log stream allowing the threads to stop)
-        
+
         - self.monitored_containers: Dict of Docker Container objects that are currently being monitored keyed by container.id
-        
+
         - self.selected_containers: List of container names that are set in the config
 
         - self.threads: List of threads that are started to monitor container logs and docker events
@@ -56,7 +56,7 @@ class DockerLogMonitor:
         self.logger = logging.getLogger(f"Monitor-{self.hostname}")
         self.logger.handlers.clear()
         handler = logging.StreamHandler()
-        formatter = (logging.Formatter(f'%(asctime)s - %(levelname)s - [Host: {self.hostname}] - %(message)s') 
+        formatter = (logging.Formatter(f'%(asctime)s - %(levelname)s - [Host: {self.hostname}] - %(message)s')
                      if self.hostname else logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
@@ -85,7 +85,7 @@ class DockerLogMonitor:
         container_stop_event.set()
         if stream:
             self.logger.info(f"Closing Log Stream connection for {container_name}")
-            try: 
+            try:
                 stream.close()
                 self.stream_connections.pop(container_name)
             except Exception as e:
@@ -130,7 +130,7 @@ class DockerLogMonitor:
 
         for container in self.client.containers.list():
             if self.swarm_mode:
-                # if the container belongs to a swarm service that is set in the config the service name has to be saved for later use 
+                # if the container belongs to a swarm service that is set in the config the service name has to be saved for later use
                 swarm_service_name = self._check_if_swarm_to_monitor(container)
                 if swarm_service_name:
                     self.logger.debug(f"Trying to monitor container of swarm service: {swarm_service_name}")
@@ -188,7 +188,7 @@ class DockerLogMonitor:
     def _start_message(self, config_reload=False):
         monitored_containers_message = "\n - ".join(c.name for id, c in self.monitored_containers.items())
         unmonitored_containers = [c for c in self.selected_containers if c not in [c.name for id, c in self.monitored_containers.items()]]
-        message = (f"These containers are being monitored:\n - {monitored_containers_message}" if self.monitored_containers 
+        message = (f"These containers are being monitored:\n - {monitored_containers_message}" if self.monitored_containers
                    else f"No selected containers are running. Waiting for new containers...")
         message = message + ((f"\n\nThese selected containers are not running:\n - " + '\n - '.join(unmonitored_containers)) if unmonitored_containers else "")
         if self.swarm_mode:
@@ -199,18 +199,18 @@ class DockerLogMonitor:
                     monitored_swarm_services.append(swarm_label)
             unmonitored_swarm_services = [s for s in self.selected_swarm_services if s not in monitored_swarm_services]
             message = message + ((f"\n\nThese selected Swarm Services are not running:\n - " + '\n - '.join(unmonitored_swarm_services)) if unmonitored_swarm_services else "")
-        
+
         title = f"LoggiFly: The config file was reloaded" if config_reload else f"LoggiFly started"
 
         self.logger.info(title + "\n" + message)
         if ((self.config.settings.disable_start_message is False and config_reload is False)
             or (config_reload is True and self.config.settings.disable_config_reload_message is False)):
-            send_notification(self.config, 
-                              container_name="LoggiFly", 
-                              title=title, 
+            send_notification(self.config,
+                              container_name="LoggiFly",
+                              title=title,
                               hostname=self.hostname,
                               message=message
-                            )   
+                            )
 
     def _handle_error(self, error_count, last_error_time, container_name=None):
         """
@@ -242,9 +242,9 @@ class DockerLogMonitor:
             return error_count, last_error_time, True  # True = to_many_errors (break while loop)
 
         time.sleep(random.uniform(0.9, 1.2) * error_count) # to prevent all threads from trying to reconnect at the same time
-        return error_count, last_error_time, False    
+        return error_count, last_error_time, False
 
-    def _monitor_container(self, container, swarm_service=None):    
+    def _monitor_container(self, container, swarm_service=None):
         def check_container(container_start_time, error_count):
             """
             Check if the container is still running and whether it is still the same container (by comparing the initial start time with the current one).
@@ -261,10 +261,10 @@ class DockerLogMonitor:
             except docker.errors.NotFound:
                 self.logger.error(f"Container {container.name} not found during container check. Stopping monitoring.")
                 return False
-            except requests.exceptions.ConnectionError as ce: 
+            except requests.exceptions.ConnectionError as ce:
                 if error_count == 1:
                     self.logger.error(f"Can not connect to Container {container.name} {ce}")
-                
+
             except Exception as e:
                 if error_count == 1:
                     self.logger.error(f"Error while checking container {container.name}: {e}")
@@ -278,12 +278,12 @@ class DockerLogMonitor:
             """
             container_start_time = container.attrs['State']['StartedAt']
             self.logger.info(f"Monitoring for Container started: {container.name}")
-            error_count, last_error_time = 0, time.time()  
+            error_count, last_error_time = 0, time.time()
             too_many_errors = False
 
             # re-use old line processor instance if it exists, otherwise create a new one
             if container.name in self.line_processor_instances:
-                self.logger.debug(f"{container.name}: Re-Using old line processor")    
+                self.logger.debug(f"{container.name}: Re-Using old line processor")
                 processor, container_stop_event = self.line_processor_instances[container.name]["processor"], self.line_processor_instances[container.name]["container_stop_event"]
                 processor._start_flush_thread()
             else:
@@ -313,7 +313,7 @@ class DockerLogMonitor:
                             except UnicodeDecodeError:
                                 log_line_decoded = line.decode("utf-8", errors="replace").strip()
                                 self.logger.warning(f"{container.name}: Error while trying to decode a log line. Used errors='replace' for line: {log_line_decoded}")
-                            if log_line_decoded: 
+                            if log_line_decoded:
                                 processor.process_line(log_line_decoded)
                 except docker.errors.NotFound as e:
                     self.logger.error(f"Container {container} not found during Log Stream: {e}")
@@ -324,9 +324,9 @@ class DockerLogMonitor:
                         self.logger.error("Error trying to monitor %s: %s", container.name, e)
                         self.logger.debug(traceback.format_exc())
                 finally:
-                    if self.shutdown_event.is_set() or too_many_errors or not_found_error:  
+                    if self.shutdown_event.is_set() or too_many_errors or not_found_error:
                         break
-                    elif container_stop_event.is_set() or not check_container(container_start_time, error_count): 
+                    elif container_stop_event.is_set() or not check_container(container_start_time, error_count):
                         self._close_stream_connection(container.name)
                         break
                     else:
@@ -342,7 +342,7 @@ class DockerLogMonitor:
     def _watch_events(self):
         """
         When a container is started that is set in the config the monitor_container function is called to start monitoring it.
-        When a selected container is stopped the stream connection is closed (causing the threads associated with it to stop) 
+        When a selected container is stopped the stream connection is closed (causing the threads associated with it to stop)
         and the container is removed from the monitored containers.
         """
         def event_handler():
@@ -351,7 +351,7 @@ class DockerLogMonitor:
             while not self.shutdown_event.is_set():
                 now = time.time()
                 too_many_errors = False
-                try: 
+                try:
                     event_stream = self.client.events(decode=True, filters={"event": ["start", "stop"]}, since=now)
                     self.logger.info("Docker Event Watcher started. Watching for new containers...")
                     for event in event_stream:
@@ -378,7 +378,7 @@ class DockerLogMonitor:
                             #     self.logger.debug(f'Docker Event Watcher: {event["Actor"]["Attributes"].get("name", container_id)} was stopped. Ignoring because it is not monitored')
                 except docker.errors.NotFound as e:
                     self.logger.error(f"Docker Event Handler: Container {container} not found: {e}")
-                except Exception as e:  
+                except Exception as e:
                     error_count, last_error_time, too_many_errors = self._handle_error(error_count, last_error_time)
                     if error_count == 1:
                         self.logger.error(f"Docker Event-Handler was stopped {e}. Trying to restart it.")
@@ -394,13 +394,13 @@ class DockerLogMonitor:
         self._add_thread(thread)
         thread.start()
 
-    def cleanup(self, timeout=1.5):    
+    def cleanup(self, timeout=1.5):
         """
-        This function is called when the program is shutting down or when there are too many errors and the client is not reachable. 
+        This function is called when the program is shutting down or when there are too many errors and the client is not reachable.
         By closing the stream connections the log stream which would otherwise be blocked until the next log line gets released allowing the threads to fninish.
         The only thread that can not easily be stopped from outside is the event_handler, because it is is blocked until the next event.
         That's not really a problem because when the connection is lost the event handler does stop and when the container shuts down it doesn't matter that much that one thread was still running
-        """  
+        """
         self.logger.info(f"Starting cleanup " f"for host {self.hostname}..." if self.hostname else "...")
         self.cleanup_event.set()
         self.shutdown_event.set()

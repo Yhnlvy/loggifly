@@ -14,7 +14,7 @@ from load_config import GlobalConfig
 class LogProcessor:
     """
     This class processes log lines from a Docker container and:
-    - searches for patterns and keywords, 
+    - searches for patterns and keywords,
     - tries to catch entries that span multple lines by detecting patterns and putting lines in a buffer first to see if the next line belongs to the same entry or not
     - triggers notifications when a keyword is found
     - triggers restarts/stops of the monitored container
@@ -24,11 +24,11 @@ class LogProcessor:
     That is what these patterns are for:
     """
     STRICT_PATTERNS = [
-            
+
         # combined timestamp and log level
-        r"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?\] \[(?:INFO|ERROR|DEBUG|WARN|WARNING|CRITICAL)\]", # 
+        r"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?\] \[(?:INFO|ERROR|DEBUG|WARN|WARNING|CRITICAL)\]", #
         r"^\d{4}-\d{2}-\d{2}(?:, | )\d{2}:\d{2}:\d{2}(?:,\d{3})? (?:INFO|ERROR|DEBUG|WARN|WARNING|CRITICAL)",
-        
+
         # ISO in brackets
         r"^\[\d{4}-\d{2}-\d{2}(?:T|, | )\d{2}:\d{2}:\d{2}(?:Z|[\.,]\d{2,6}|[+-]\d{2}:\d{2}| [+-]\d{4})\]", # [2025-02-17T03:23:07Z] or [2025-02-17 04:22:59 +0100] or [2025-02-18T03:23:05.436627]
 
@@ -42,10 +42,10 @@ class LogProcessor:
         # Months without brackets
         r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4} \d{2}:\d{2}:\d{2}\b",
         r"\b\d{1,2}\/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\/\d{4}(?:\:| |\/)\d{2}:\d{2}:\d{2}(?:Z||\s[+\-]\d{2}:\d{2}|\s[+\-]\d{4})\b",   # 17/Feb/2025:10:13:02 +0000
-        
+
         # Unix-like Timestamps
         r"^\[\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}\.\d{2,6}\]",
-        
+
         # Log-Level at the beginning of the line
         r"^\[(?:INFO|ERROR|DEBUG|WARN|WARNING|CRITICAL)\]",
         r"^\((?:INFO|ERROR|DEBUG|WARN|WARNING|CRITICAL)\)"
@@ -55,7 +55,7 @@ class LogProcessor:
             # ----------------------------------------------------------------
             # Generic Timestamps (Fallback)
             # ----------------------------------------------------------------
-            
+
             r"\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\b",
             r"\b\d{4}-\d{2}-\d{2}(?:T|, | )\d{2}:\d{2}:\d{2}(?:Z|[\.,]\d{2,6}|[+-]\d{2}:\d{2}| [+-]\d{4})\b", # 2025-02-17T03:23:07Z
             r"\b(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])-\d{4} \d{2}:\d{2}:\d{2}\b",
@@ -65,19 +65,19 @@ class LogProcessor:
             # ----------------------------------------------------------------
             # Log-Level (Fallback)
             # ----------------------------------------------------------------
-            r"(?i)(?<=^)\b(?:INFO|ERROR|DEBUG|WARN(?:ING)?|CRITICAL)\b(?=\s|:|$)",      
+            r"(?i)(?<=^)\b(?:INFO|ERROR|DEBUG|WARN(?:ING)?|CRITICAL)\b(?=\s|:|$)",
             r"(?i)(?<=\s)\b(?:INFO|ERROR|DEBUG|WARN(?:ING)?|CRITICAL)\b(?=\s|:|$)",
             r"(?i)\[(?:INFO|ERROR|DEBUG|WARN(?:ING)?|CRITICAL)\]",
             r"(?i)\((?:INFO|ERROR|DEBUG|WARN(?:ING)?|CRITICAL)\)",
             r"(?i)\d{2}/\d{2}/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+(?:AM|PM)",
         ]
-            
+
     COMPILED_STRICT_PATTERNS = [re.compile(pattern, re.ASCII) for pattern in STRICT_PATTERNS]
     COMPILED_FLEX_PATTERNS = [re.compile(pattern, re.ASCII) for pattern in FLEX_PATTERNS]
 
-    def __init__(self, logger, hostname, config: GlobalConfig, container, container_stop_event, swarm_service=None): 
-        self.logger = logger    
-        self.hostname = hostname    # empty string if only one client else the hostname of the client 
+    def __init__(self, logger, hostname, config: GlobalConfig, container, container_stop_event, swarm_service=None):
+        self.logger = logger
+        self.hostname = hostname    # empty string if only one client else the hostname of the client
         self.container_stop_event = container_stop_event
         self.container = container
         self.swarm_service=swarm_service
@@ -90,9 +90,9 @@ class LogProcessor:
         self.flush_thread_stopped.set()
         self.waiting_for_pattern = False
         self.valid_pattern = False
-        
+
         self.load_config_variables(config)
-    
+
     def load_config_variables(self, config):
         """
         This function can get called from the log_monitor function in app.py to reload the config variables
@@ -121,7 +121,7 @@ class LogProcessor:
             self.notification_title = self.config.containers[self.container_name].notification_title or self.config.settings.notification_title
 
         self.multi_line_config = self.config.settings.multi_line_entries
-        self.time_per_keyword = {}  
+        self.time_per_keyword = {}
         self.last_action_time = None
 
         for keyword in self.container_keywords + self.container_keywords_with_attachment:
@@ -130,8 +130,8 @@ class LogProcessor:
             elif isinstance(keyword, dict) and keyword.get("keyword") is not None:
                 self.time_per_keyword[keyword["keyword"]] = 0
             else:
-                self.time_per_keyword[keyword] = 0  
-                    
+                self.time_per_keyword[keyword] = 0
+
         if self.multi_line_config is True:
             self.line_count = 0
             self.line_limit = 300
@@ -145,15 +145,15 @@ class LogProcessor:
                     self.logger.debug(f"{self.container_name}: Mode: Multi-Line. Found starting pattern(s) in logs.")
                 else:
                     self.logger.debug(f"{self.container_name}: Mode: Single-Line. Could not find starting pattern in the logs. Continuing the search in the next {self.line_limit - self.line_count} lines")
-        
+
             self.buffer = []
             self.log_stream_timeout = 1 # self.config.settings.flush_timeout Not an supported setting (yet)
             self.log_stream_last_updated = time.time()
             # Start Background-Thread for Timeout (only starts when it is not already running)
             self._start_flush_thread()
-                
+
     def process_line(self, line):
-        """        
+        """
         This function gets called from outside this class by the monitor_container_logs function in app.py
         If the user disables multi_line_entries or if there are no patterns detected (yet) the program switches to single-line mode
         In single-line mode the line gets processed and searched for keywords instantly instead of going into the buffer first
@@ -167,7 +167,7 @@ class LogProcessor:
             if self.valid_pattern == True:
                 self._process_multi_line(clean_line)
             else:
-                self._search_and_send(clean_line)        
+                self._search_and_send(clean_line)
 
     def _find_pattern(self, line_s):
         """
@@ -188,7 +188,7 @@ class LogProcessor:
                     if pattern.search(clean_line):
                         self.patterns_count[pattern] += 1
                         break
-  
+
         sorted_patterns = sorted(self.patterns_count.items(), key=lambda x: x[1], reverse=True)
         threshold = max(5, int(self.line_count * 0.075))
 
@@ -210,10 +210,10 @@ class LogProcessor:
             """
             When mode is multi-line new lines go into a buffer first to see whether the next line belongs to the same entry or not.
             Every second the buffer gets flushed
-            """ 
+            """
             self.flush_thread_stopped.clear()
             while True:
-                if self.container_stop_event.is_set(): # self.shutdown_event.is_set() or 
+                if self.container_stop_event.is_set(): # self.shutdown_event.is_set() or
                     time.sleep(4)
                     if self.container_stop_event.is_set():
                         break
@@ -225,14 +225,14 @@ class LogProcessor:
                 time.sleep(1)
             self.flush_thread_stopped.set()
             self.logger.debug(f"Flush Thread stopped for Container {self.container_name}")
-            
+
         if self.flush_thread_stopped.is_set():
             self.flush_thread = Thread(target=check_flush, daemon=True)
             self.flush_thread.start()
 
     def _handle_and_clear_buffer(self):
-        """    
-        This function is called either when the buffer is flushed 
+        """
+        This function is called either when the buffer is flushed
         or when a new log entry was found that does not belong to the last line in the buffer
         It calls the _search_and_send function to search for keywords in all log lines in the buffer
         """
@@ -243,15 +243,15 @@ class LogProcessor:
     def _process_multi_line(self, line):
         """
         When mode is multi-line this function processes the log lines.
-        It checks if the line matches any of the patterns (meaning the line signals a new log entry) 
+        It checks if the line matches any of the patterns (meaning the line signals a new log entry)
         and if so, it flushes the buffer and appends the new line to the buffer.
         """
-        # When the pattern gets updated by _find_pattern() this function waits 
+        # When the pattern gets updated by _find_pattern() this function waits
         while self.waiting_for_pattern is True:
             time.sleep(1)
 
         for pattern in self.patterns:
-            # If there is a pattern in the line idicating a new log entry the buffer gets flushed and the line gets appended to the buffer           
+            # If there is a pattern in the line idicating a new log entry the buffer gets flushed and the line gets appended to the buffer
             if pattern.search(line):
                 if self.buffer:
                     self._handle_and_clear_buffer()
@@ -265,7 +265,7 @@ class LogProcessor:
             if self.buffer:
                 self.buffer.append(line)
             else:
-                # Fallback: Unexpected Format 
+                # Fallback: Unexpected Format
                 self.buffer.append(line)
         self.log_stream_last_updated = time.time()
 
@@ -291,7 +291,7 @@ class LogProcessor:
                     self.time_per_keyword[keyword] = time.time()
                     return keyword
         return None
-    
+
     def _message_from_template(self, keyword, log_line):
         message = log_line
 
@@ -310,14 +310,14 @@ class LogProcessor:
                 self.logger.error(f"KeyError: {e} in template: {template} with log line: {log_line}")
             except Exception as e:
                 self.logger.error(f"Unexpected Error trying to parse a JSON log line with template {template}: {e}")
-                self.logger.error(f"Details: {traceback.format_exc()}") 
+                self.logger.error(f"Details: {traceback.format_exc()}")
 
         elif keyword.get("template") is not None and "regex" in keyword:
             template = keyword.get("template")
             match = re.search(keyword["regex"], log_line, re.IGNORECASE)
             if match:
                 groups = match.groupdict()
-                groups.setdefault("original_log_line", log_line) 
+                groups.setdefault("original_log_line", log_line)
                 try:
                     message = template.format(**groups)
                     self.logger.debug(f"Successfully applied this template: {template}")
@@ -327,11 +327,11 @@ class LogProcessor:
                 except Exception as e:
                     self.logger.error(f"Error applying template {template}: {e}")
         return message
-    
+
     def _search_and_send(self, log_line):
         """
-        Triggers the search for keywords, keywords with attachment and action_keywords 
-        and if found calls the _send_message function to send a notification 
+        Triggers the search for keywords, keywords with attachment and action_keywords
+        and if found calls the _send_message function to send a notification
         or the _container_action function to restart/stop the container
         """
         keywords_found = []
@@ -350,13 +350,13 @@ class LogProcessor:
         for keyword in self.container_keywords_with_attachment:
             found = self._search_keyword(log_line, keyword)
             if found:
-                keywords_found.append(found)    
+                keywords_found.append(found)
                 send_attachment = True
                 if isinstance(keyword, dict) and (keyword.get("template") is not None or keyword.get("json_template") is not None):
                     message = self._message_from_template(keyword, log_line)
 
         # Trigger notification if keywords have been found
-        if keywords_found:        
+        if keywords_found:
             formatted_log_entry ="\n  -----  LOG-ENTRY  -----\n" + ' | ' + '\n | '.join(log_line.splitlines()) + "\n   -----------------------"
             self.logger.info(f"The following keywords were found in {self.container_name}: {keywords_found}."
                         + (f" (A Log FIle will be attached)" if send_attachment else "")
@@ -366,7 +366,7 @@ class LogProcessor:
                 self._send_message(message, keywords_found, send_attachment=True)
             else:
                 self._send_message(message, keywords_found, send_attachment=False)
-            
+
         # Keywords that trigger a restart
         for keyword in self.container_action_keywords:
             if self.last_action_time is None or (self.last_action_time is not None and time.time() - self.last_action_time >= max(int(self.action_cooldown), 60)):
@@ -385,12 +385,12 @@ class LogProcessor:
                     self._container_action(action, log_line, found)
                     self.last_action_time = time.time()
                     break
-            
-    def _log_attachment(self):  
+
+    def _log_attachment(self):
         """Tail the last lines of the container logs and save them to a file"""
         base_name = f"last_{self.lines_number_attachment}_lines_from_{self.container_name}.log"
         folder = "/tmp/"
-        
+
         def find_available_name(filename, number=1):
             """Create different file name with number if it already exists (in case of many notifications at same time)"""
             new_name = f"{filename.rsplit('.', 1)[0]}_{number}.log"
@@ -398,7 +398,7 @@ class LogProcessor:
             if os.path.exists(path):
                 return find_available_name(filename, number + 1)
             return path
-        
+
         if os.path.exists(base_name):
             file_path = find_available_name(base_name)
         else:
@@ -406,7 +406,7 @@ class LogProcessor:
         try:
             os.makedirs("/tmp", exist_ok=True)
             log_tail = self.container.logs(tail=self.lines_number_attachment).decode("utf-8")
-            with open(file_path, "w") as file:  
+            with open(file_path, "w") as file:
                 file.write(log_tail)
                 logging.debug(f"Wrote file: {file_path}")
                 return file_path
@@ -446,28 +446,28 @@ class LogProcessor:
                     title = f"{self.container_name}: {keywords_found}"
             elif isinstance(keywords_found, str):
                 keyword = keywords_found
-            else: 
+            else:
                 title = f"{self.container_name}: {keywords_found}"
             if action:
                 title = f"{'Stopping' if action == 'stop' else 'Restarting'} {self.container_name} because '{keyword}' was found"
             return title
-    
+
         title = get_notification_title()
         if send_attachment:
             file_path = self._log_attachment()
             if file_path and isinstance(file_path, str) and os.path.exists(file_path):
-                send_notification(self.config, container_name=self.container_name, keywords=keywords_found, message=message, title=title, hostname=self.hostname, file_path=file_path)     
+                send_notification(self.config, container_name=self.container_name, keywords=keywords_found, message=message, title=title, hostname=self.hostname, file_path=file_path)
                 if os.path.exists(file_path):
                     os.remove(file_path)
                     self.logger.debug(f"The file {file_path} was deleted.")
                 else:
-                    self.logger.debug(f"The file {file_path} does not exist.") 
+                    self.logger.debug(f"The file {file_path} does not exist.")
 
         else:
             send_notification(self.config, container_name=self.container_name, keywords=keywords_found, message=message, title=title, hostname=self.hostname)
 
     def _container_action(self, action):
-        try: 
+        try:
             if action == "stop":
                 self.logger.info(f"Stopping Container: {self.container_name}.")
                 container = self.container
